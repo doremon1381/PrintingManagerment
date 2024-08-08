@@ -3,7 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrintingManagermentServer", "PrintingManagermentServer.csproj", "{46FE00DE-C086-4808-BC56-4907AF417D70}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PrintingManagermentServer", "PrintingManagermentServer.csproj", "{46FE00DE-C086-4808-BC56-4907AF417D70}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IssuerOfClaims", "..\IssuerOfClaims\IssuerOfClaims.csproj", "{B7ECE1FD-AD68-4E43-A02E-A50F3B971556}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrMModelsDbServer", "..\PrMModelsDbServer\PrMModelsDbServer.csproj", "{1EC89E92-29CF-4688-A1BD-8F1AB4C1A5DA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrMModelsServer", "..\PrMModelsServer\PrMModelsServer.csproj", "{9C116AE5-AA27-436D-B85B-D2798625CB91}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +21,18 @@ Global
 		{46FE00DE-C086-4808-BC56-4907AF417D70}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{46FE00DE-C086-4808-BC56-4907AF417D70}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{46FE00DE-C086-4808-BC56-4907AF417D70}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7ECE1FD-AD68-4E43-A02E-A50F3B971556}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7ECE1FD-AD68-4E43-A02E-A50F3B971556}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7ECE1FD-AD68-4E43-A02E-A50F3B971556}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7ECE1FD-AD68-4E43-A02E-A50F3B971556}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1EC89E92-29CF-4688-A1BD-8F1AB4C1A5DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1EC89E92-29CF-4688-A1BD-8F1AB4C1A5DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1EC89E92-29CF-4688-A1BD-8F1AB4C1A5DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1EC89E92-29CF-4688-A1BD-8F1AB4C1A5DA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C116AE5-AA27-436D-B85B-D2798625CB91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C116AE5-AA27-436D-B85B-D2798625CB91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C116AE5-AA27-436D-B85B-D2798625CB91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C116AE5-AA27-436D-B85B-D2798625CB91}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

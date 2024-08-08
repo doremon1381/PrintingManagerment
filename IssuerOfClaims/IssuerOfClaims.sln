@@ -3,7 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IssuerOfClaims", "IssuerOfClaims.csproj", "{6FA6F03A-5461-4B37-BA03-F19D54150D6C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IssuerOfClaims", "IssuerOfClaims.csproj", "{6FA6F03A-5461-4B37-BA03-F19D54150D6C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PrMModelsDbServer", "..\..\Printing managerment\PrMModelsDbServer\PrMModelsDbServer.csproj", "{9F3C3185-2BC3-4AC8-85E8-F2F2E7876015}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PrMModelsServer", "..\..\Printing managerment\PrMModelsServer\PrMModelsServer.csproj", "{F0FE6C9B-1E82-4B36-9FDE-00D5364BCD95}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PrintingManagermentServer", "..\..\Printing managerment\PrintingManagermentServer\PrintingManagermentServer.csproj", "{0E52EA46-A781-43C5-A666-F6E15D697292}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +21,18 @@ Global
 		{6FA6F03A-5461-4B37-BA03-F19D54150D6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6FA6F03A-5461-4B37-BA03-F19D54150D6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6FA6F03A-5461-4B37-BA03-F19D54150D6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F3C3185-2BC3-4AC8-85E8-F2F2E7876015}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F3C3185-2BC3-4AC8-85E8-F2F2E7876015}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F3C3185-2BC3-4AC8-85E8-F2F2E7876015}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F3C3185-2BC3-4AC8-85E8-F2F2E7876015}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0FE6C9B-1E82-4B36-9FDE-00D5364BCD95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0FE6C9B-1E82-4B36-9FDE-00D5364BCD95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F0FE6C9B-1E82-4B36-9FDE-00D5364BCD95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0FE6C9B-1E82-4B36-9FDE-00D5364BCD95}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E52EA46-A781-43C5-A666-F6E15D697292}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E52EA46-A781-43C5-A666-F6E15D697292}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E52EA46-A781-43C5-A666-F6E15D697292}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E52EA46-A781-43C5-A666-F6E15D697292}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
