@@ -1,16 +1,19 @@
 ﻿using Microsoft.AspNetCore.Identity;
 #if DbServer
 using Microsoft.EntityFrameworkCore;
+#endif
+
+#if DbServer
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
 namespace PrMDbModels
 {
 #if DbServer
-    [Table("PrMPermissions")]
+    [Table("IdentityUserRoles")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class PrMPermission: IdentityUserRole<int>, IDbTable
+    public class IdentityUserRole : IdentityUserRole<int>, IDbTable
     {
 #if DbServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

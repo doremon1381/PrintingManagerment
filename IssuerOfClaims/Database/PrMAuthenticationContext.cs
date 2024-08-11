@@ -1,12 +1,12 @@
-﻿using IssuerOfClaims.Database.Model;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Metadata;
 using PrMDbModels;
 
 namespace IssuerOfClaims.Database
 {
     public class PrMAuthenticationContext : DbContext, IPrMAuthenticationContext
+        //, IdentityDbContext<PrMUser, PrMRole, int, PrMUserClaim, PrMPermission, PrMUserLogin, PrMRoleClaim, PrMUserToken>
     {
 
         private ILogger<PrMAuthenticationContext> _logger;
@@ -19,6 +19,13 @@ namespace IssuerOfClaims.Database
         public DbSet<PrMRole> PrMRoles { get; set; }
         public DbSet<PrMPermission> PrMPermissions { get; set; }
         public DbSet<PrMClient> PrMClients { get; set; }
+        public DbSet<ConfirmEmail> ConfirmEmails { get; set; }
+        public DbSet<PrMUserClaim> PrMUserClaims { get; set; }
+        public DbSet<PrMUserLogin> PrMUserLogins { get; set; }
+        public DbSet<PrMRoleClaim> PrMRoleClaims { get; set; }
+        public DbSet<PrMUserToken> PrMUserTokens { get; set; }
+        //public DbSet<IdentityUserRole> IdentityUserRoles { get; set; }
+        //public DbSet<IdentityUserClaim> IdentityUserClaims { get; set; }
         #endregion
 
         public PrMAuthenticationContext(DbContextOptions<PrMAuthenticationContext> options, ILogger<PrMAuthenticationContext> logger)
@@ -87,6 +94,11 @@ namespace IssuerOfClaims.Database
                 .HasConversion(
                     v => string.Join(',', v),
                     v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
+
+            modelBuilder.Entity<PrMRole>()
+                .HasOne(a => a.RoleClaim)
+                .WithOne(a => a.Role)
+                .HasForeignKey<PrMRoleClaim>(c => c.RoleId);
 
             base.OnModelCreating(modelBuilder);
         }

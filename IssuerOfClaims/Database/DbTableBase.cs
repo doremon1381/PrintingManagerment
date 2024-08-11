@@ -22,17 +22,49 @@ namespace IssuerOfClaims.Database
 
         public bool Create(TEntity model)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                this._DbModels.Add(model);
+                this.SaveChanges();
+            }
+            catch (Exception)
+            {
+                return false;
+                //throw;
+            }
+
+            return true;
         }
 
         public bool Add(TEntity model)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                this._DbModels.Add(model);
+                this.SaveChanges();
+            }
+            catch (Exception)
+            {
+                return false;
+                //throw;
+            }
+
+            return true;
         }
 
         public bool Update(TEntity model)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                this._DbModels.Update(model);
+                this.SaveChanges();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public bool Delete(TEntity model)

@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PrMModelsServer\PrMModelsServer.csproj" />
+    <ProjectReference Include="..\PrMServerUltilities\PrMServerUltilities.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Extensions\" />
   </ItemGroup>
 
 </Project>

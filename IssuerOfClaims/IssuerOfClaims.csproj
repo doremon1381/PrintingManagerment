@@ -13,6 +13,8 @@
   <ItemGroup>
     <PackageReference Include="duende.identityserver" Version="7.0.6" />
     <PackageReference Include="jsonwebtoken" Version="1.9.4" />
+    <PackageReference Include="MailKit" Version="4.7.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -26,7 +28,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Printing managerment\PrMModelsDbServer\PrMModelsDbServer.csproj" />
+    <ProjectReference Include="..\PrMModelsDbServer\PrMModelsDbServer.csproj" />
+    <ProjectReference Include="..\PrMServerUltilities\PrMServerUltilities.csproj" />
   </ItemGroup>
 
 </Project>

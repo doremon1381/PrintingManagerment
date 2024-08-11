@@ -1,6 +1,9 @@
 using IssuerOfClaims.Controllers.Ultility;
 using IssuerOfClaims.Database;
+using IssuerOfClaims.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using PrMDbModels;
 
 namespace IssuerOfClaims
 {
@@ -18,24 +21,28 @@ namespace IssuerOfClaims
             });
             builder.Services.AddScoped<IPrMUserDbServices, PrMUserDbServices>();
             builder.Services.AddScoped<IPrMClientDbServices, PrMClientDbServices>();
+            builder.Services.AddScoped<IPrMRoleDbServices, PrMRoleDbServices>();
+            builder.Services.AddScoped<IPrMPermissionDbServices, PrMPermissionDbServices>();
+            builder.Services.AddScoped<IConfirmEmailDbServices, ConfirmEmailDbServices>();
             builder.Services.AddSingleton(AuthorizationResources.GetClients(builder.Configuration));
-            //builder.Services.AddScoped<IPrMIdentityServer, PrMIdentityServer>();
-            // add asp.net identity
-            // will need because in identity server, need to hold login session to 
-            //builder.Services.AddIdentity<IdentityUser, IdentityRole>()
-            //    .AddUserManager<IdentityUser>();
-            //builder.Services.AddPrMIdentityServer()
-            //    .Add;
-            //builder.Services.AddIdentityServer()
-            //    // TODO: for demo and test
-            //    .AddInMemoryClients(AuthorizationResources.GetClients(builder.Configuration))
-            //    .AddInMemoryIdentityResources(new IdentityResource[] {
-            //        new IdentityResources.OpenId(),
-            //        new IdentityResources.Profile(),
-            //        new IdentityResources.Email(),
-            //        new IdentityResources.Phone(),
-            //    });
-            //.AddAspNetIdentity<CustomClient>();
+            //builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
+            MailSettings mailSettings = builder.Configuration.GetSection("MailSettings").Get<MailSettings>();
+            JwtOptions jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
+            builder.Services.AddSingleton(mailSettings);
+            builder.Services.AddSingleton(jwtOptions);
+            builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
+            // TODO: will add later
+            builder.Services.AddIdentity<PrMUser, PrMRole>(options =>
+            {
+                options.User.RequireUniqueEmail = false;
+            })
+            .AddEntityFrameworkStores<PrMAuthenticationContext>()
+            .AddUserStore<PrMUserStore>()
+            .AddDefaultTokenProviders();
+            //.AddSignInManager<PrMUser>()
+            ////.AddUserManager<PrMUser>()
+            //.AddRoleManager<IdentityRole>().AddClaimsPrincipalFactory<PrMUser>();
+
             builder.Services.AddAuthentication(defaultScheme: "cookies")
                 .AddCookie(authenticationScheme: "cookie", configureOptions: (options) =>
                 {
@@ -43,7 +50,9 @@ namespace IssuerOfClaims
                     options.ExpireTimeSpan = TimeSpan.FromHours(8);
                     options.LoginPath = "/login";
                 });
-                //.AddOpenIdConnect();
+            //.AddOpenIdConnect();
+
+
             builder.Services.AddLogging(options =>
             {
                 //options.AddFilter("Duende", LogLevel.Debug);
@@ -59,7 +68,15 @@ namespace IssuerOfClaims
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
             });
+            builder.Services.AddDistributedMemoryCache();
 
+            builder.Services.AddSession(options =>
+            {
+                options.Cookie.Name = "PrMSession";
+                options.IdleTimeout = TimeSpan.FromSeconds(10);
+                //options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+            });
             var app = builder.Build();
 
             SetupPipline(app);
@@ -74,15 +91,13 @@ namespace IssuerOfClaims
 
             app.UseHttpsRedirection();
 
-            //app.UseIdentityServer();
-            // duende IdentityServer is already have UseAuthentication,
-            // so do not need to have both with app.UseAuthentication
             app.UseAuthentication();
-
             //app.UseStaticFiles();
             app.UseRouting();
 
             app.UseAuthorization();
+
+            app.UseSession();
 
             app.MapControllers();
         }

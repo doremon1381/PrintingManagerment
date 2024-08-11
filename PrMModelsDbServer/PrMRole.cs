@@ -1,4 +1,5 @@
-﻿#if DbServer
+﻿using Microsoft.AspNetCore.Identity;
+#if DbServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
@@ -9,10 +10,20 @@ namespace PrMDbModels
     [Table("PrMRoles")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class PrMRole: ModelBase
+    public class PrMRole: IdentityRole<int>, IDbTable
     {
         public string RoleCode { get; set; }
         public string RoleName { get; set; }
+#if DbServer
+        [NotMapped]
+#endif
+        public override string? Name { get; set; }
+#if DbServer
+        [NotMapped]
+#endif
+        public override string? NormalizedName { get; set; }
+        public override string? ConcurrencyStamp { get; set; }
+        public PrMRoleClaim RoleClaim { get; set; }
 
         public List<PrMPermission> PrMPermissions { get; set; }
     }

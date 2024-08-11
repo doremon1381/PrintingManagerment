@@ -19,13 +19,15 @@ namespace IssuerOfClaims
         /// </summary>
         /// <param name="configuration"></param>
         /// <returns></returns>
-        public static IEnumerable<PrMClient> GetClients(IConfigurationManager configuration)
+        internal static IEnumerable<PrMClient> GetClients(IConfigurationManager configuration)
         {
             var contextOptions = new DbContextOptionsBuilder<PrMAuthenticationContext>()
                  .UseSqlServer(configuration.GetConnectionString(DbUltilities.DatabaseName))
                  .Options;
 
-            var clientDb = new PrMClientDbServices(new PrMAuthenticationContext(contextOptions, null));
+            var dbContext = new PrMAuthenticationContext(contextOptions, null);
+
+            var clientDb = new PrMClientDbServices(dbContext);
             var clients = clientDb.GetAll();
 
             if (clients.Count == 0)
@@ -64,68 +66,101 @@ namespace IssuerOfClaims
                 clients = newClients;
             }
 
-            return clients;
-        }
-    }
+            var roles = dbContext.PrMRoles.ToList();
 
-    /// <summary>
-    /// TODO: will delete
-    /// </summary>
-    public static class RNGCryptoServicesUltilities
-    {
-        // rfc 7636 impliment
-        public static void GetMitigateAttackMethod()
-        {
-            string status = RandomStringGeneratingWithLength(32);
-            string code_verifier = RandomStringGeneratingWithLength(32);
-            string code_challenge = Base64UrlEncodeNoPadding(code_verifier.WithSHA265());
-            string code_challenge_method = "S256";
-        }
-
-        public static string RandomStringGeneratingWithLength(int length)
-        {
-            RNGCryptoServiceProvider strGenerator = new RNGCryptoServiceProvider();
-            byte[] arr = new byte[length];
-            strGenerator.GetBytes(arr, 0, length);
-
-            return Base64UrlEncodeNoPadding(arr);
-        }
-
-        private static string Base64UrlEncodeNoPadding(byte[] str)
-        {
-            string base64 = Convert.ToBase64String(str);
-
-            // convert base64 to base64url
-            base64.Replace("+", "-");
-            base64.Replace("/", "_");
-
-            // strip padding
-            base64.Replace("=", "");
-
-            return base64;
-        }
-
-        private static byte[] WithSHA265(this string str)
-        {
-            byte[] newByteArr = Encoding.ASCII.GetBytes(str);
-            SHA256Managed sha256 = new SHA256Managed();
-            return sha256.ComputeHash(newByteArr);
-        }
-
-        public static string GetStringWithSHA256(this string str)
-        {
-            byte[] newByteArr = Encoding.ASCII.GetBytes(str);
-            SHA256Managed sha256 = new SHA256Managed();
-            var hashBytes = sha256.ComputeHash(newByteArr);
-
-            StringBuilder sb = new StringBuilder();
-
-            foreach (var b in hashBytes)
+            if (roles.Count == 0)
             {
-                sb.Append(b.ToString());
+                roles = new List<PrMRole>()
+                {
+                    new PrMRole()
+                    {
+                        RoleName="admin",
+                        RoleCode="admin",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="employee",
+                        RoleCode="employee",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="designer",
+                        RoleCode="designer",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="deliver",
+                        RoleCode="deliver",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="manager",
+                        RoleCode="manager",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="leader",
+                        RoleCode="leader",
+                    },
+                };
+
+                dbContext.PrMRoles.AddRange(roles);
+                dbContext.SaveChanges();
             }
 
-            return sb.ToString();
+            return clients;
+        }
+
+        internal static List<PrMRole> GetRoles(ConfigurationManager configuration)
+        {
+            var contextOptions = new DbContextOptionsBuilder<PrMAuthenticationContext>()
+                 .UseSqlServer(configuration.GetConnectionString(DbUltilities.DatabaseName))
+                 .Options;
+            var dbContext = new PrMAuthenticationContext(contextOptions, null);
+
+            var roles = dbContext.PrMRoles.ToList();
+
+            if (roles.Count == 0)
+            {
+                roles = new List<PrMRole>()
+                {
+                    new PrMRole()
+                    {
+                        RoleName="admin",
+                        RoleCode="admin",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="employee",
+                        RoleCode="employee",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="designer",
+                        RoleCode="designer",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="deliver",
+                        RoleCode="deliver",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="manager",
+                        RoleCode="manager",
+                    },
+                    new PrMRole()
+                    {
+                        RoleName="leader",
+                        RoleCode="leader",
+                    },
+                };
+
+                dbContext.PrMRoles.AddRange(roles);
+                dbContext.SaveChanges();
+            }
+
+            return roles;
         }
     }
 }
