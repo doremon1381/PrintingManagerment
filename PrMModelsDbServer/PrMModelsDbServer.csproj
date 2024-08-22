@@ -23,6 +23,7 @@
   <ItemGroup>
     <Compile Remove="IdentityUserClaim.cs" />
     <Compile Remove="IdentityUserRole.cs" />
+    <Compile Remove="PrMPermission.cs" />
   </ItemGroup>
 
   <ItemGroup>

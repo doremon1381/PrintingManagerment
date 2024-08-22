@@ -24,6 +24,7 @@
     <Compile Include="..\PrMModelsDbServer\ModelBase.cs" Link="ModelBase.cs" />
     <Compile Include="..\PrMModelsDbServer\PrMClient.cs" Link="PrMClient.cs" />
     <Compile Include="..\PrMModelsDbServer\PrMPermission.cs" Link="PrMPermission.cs" />
+    <Compile Include="..\PrMModelsDbServer\PrMRequiredLoginSession.cs" Link="PrMRequiredLoginSession.cs" />
     <Compile Include="..\PrMModelsDbServer\PrMRole.cs" Link="PrMRole.cs" />
     <Compile Include="..\PrMModelsDbServer\PrMRoleClaim.cs" Link="PrMRoleClaim.cs" />
     <Compile Include="..\PrMModelsDbServer\PrMSecret.cs" Link="PrMSecret.cs" />

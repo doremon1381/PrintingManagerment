@@ -1,6 +1,6 @@
 ﻿using Microsoft.IdentityModel.Tokens;
 
-namespace IssuerOfClaims
+namespace IssuerOfClaims.Models
 {
     /// <summary>
     /// 

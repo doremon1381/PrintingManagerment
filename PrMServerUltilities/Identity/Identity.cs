@@ -1,18 +1,10 @@
 ﻿namespace PrMServerUltilities.Identity
 {
-    public static class ResponseType
-    {
-        public static string IdToken = "id_token";
-    }
-
-    public static class ResponseMode
-    {
-        public static string FormPost = "form_post";
-    }
 
     public static class IdentityServerConfiguration
     {
-        public const string SCHEME_BASIC = "Basic";
+        public const string AUTHENTICATION_SCHEME_BASIC = "Basic";
+        public const string AUTHENTICATION_SCHEME_ANONYMOUS = "anonymous";
         public const string GOOGLE_CLIENT = "GoogleClient";
         public const string WEB_SERVER = "WebServer";
         public const string PROJECT_ID = "project_id";

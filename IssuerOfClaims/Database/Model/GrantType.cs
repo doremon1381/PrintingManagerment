@@ -1,5 +1,8 @@
 ﻿namespace IssuerOfClaims.Database.Model
 {
+    /// <summary>
+    /// TODO: from duende
+    /// </summary>
     public static class GrantType
     {
         public const string Implicit = "implicit";

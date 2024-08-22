@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PrMDbModels;
@@ -6,7 +7,6 @@ using PrMDbModels;
 namespace IssuerOfClaims.Database
 {
     public class PrMAuthenticationContext : DbContext, IPrMAuthenticationContext
-        //, IdentityDbContext<PrMUser, PrMRole, int, PrMUserClaim, PrMPermission, PrMUserLogin, PrMRoleClaim, PrMUserToken>
     {
 
         private ILogger<PrMAuthenticationContext> _logger;
@@ -14,18 +14,15 @@ namespace IssuerOfClaims.Database
         //private IConfiguration _configuration;
 
         #region DbSet needs to be add in this DbContext to prevent an error of DbSet is not existed in this context (I think it means in this DbContext class) when using later
-        //private DbSet<CustomClient> CustomClients { get; set; }
         public DbSet<PrMUser> PrMUsers { get; set; }
         public DbSet<PrMRole> PrMRoles { get; set; }
-        public DbSet<PrMPermission> PrMPermissions { get; set; }
+        public DbSet<PrMIdentityUserRole> IdentityUserRoles { get; set; }
         public DbSet<PrMClient> PrMClients { get; set; }
         public DbSet<ConfirmEmail> ConfirmEmails { get; set; }
-        public DbSet<PrMUserClaim> PrMUserClaims { get; set; }
-        public DbSet<PrMUserLogin> PrMUserLogins { get; set; }
-        public DbSet<PrMRoleClaim> PrMRoleClaims { get; set; }
-        public DbSet<PrMUserToken> PrMUserTokens { get; set; }
-        //public DbSet<IdentityUserRole> IdentityUserRoles { get; set; }
-        //public DbSet<IdentityUserClaim> IdentityUserClaims { get; set; }
+        public DbSet<TokenExternal> TokenExternals { get; set; }
+        public DbSet<PrMRequiredLoginSession> PrMRequiredLoginSessions { get; set; }
+        public DbSet<LoginSessionWithResponse> LoginSessionWithResponses { get; set; }
+        public DbSet<TokenResponse> TokenResponses { get; set; }
         #endregion
 
         public PrMAuthenticationContext(DbContextOptions<PrMAuthenticationContext> options, ILogger<PrMAuthenticationContext> logger)
@@ -69,36 +66,56 @@ namespace IssuerOfClaims.Database
             //            (c1, c2) => c1.SequenceEqual(c2),
             //            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
             //            c => c.ToDictionary<string,string>()));
-            modelBuilder.Entity<PrMClient>()
-                .Property(e => e.ClientSecrets)
-                .HasConversion(
-                    v => string.Join(',', v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            modelBuilder.Entity<PrMClient>()
-                .Property(e => e.AllowedGrantTypes)
-                .HasConversion(
-                    v => string.Join(',', v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            modelBuilder.Entity<PrMClient>()
-                .Property(e => e.RedirectUris)
-                .HasConversion(
-                    v => string.Join(',', v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            modelBuilder.Entity<PrMClient>()
-                .Property(e => e.PostLogoutRedirectUris)
-                .HasConversion(
-                    v => string.Join(',', v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            modelBuilder.Entity<PrMClient>()
-                .Property(e => e.AllowedScopes)
-                .HasConversion(
-                    v => string.Join(',', v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
+            //modelBuilder.Entity<PrMClient>()
+            //    .Property(e => e.ClientSecrets)
+            //    .HasConversion(
+            //        v => string.Join(',', v),
+            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
+            //modelBuilder.Entity<PrMClient>()
+            //    .Property(e => e.AllowedGrantTypes)
+            //    .HasConversion(
+            //        v => string.Join(',', v),
+            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
+            //modelBuilder.Entity<PrMClient>()
+            //    .Property(e => e.RedirectUris)
+            //    .HasConversion(
+            //        v => string.Join(',', v),
+            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
+            //modelBuilder.Entity<PrMClient>()
+            //    .Property(e => e.PostLogoutRedirectUris)
+            //    .HasConversion(
+            //        v => string.Join(',', v),
+            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
+            //modelBuilder.Entity<PrMClient>()
+            //    .Property(e => e.AllowedScopes)
+            //    .HasConversion(
+            //        v => string.Join(',', v),
+            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
 
-            modelBuilder.Entity<PrMRole>()
-                .HasOne(a => a.RoleClaim)
-                .WithOne(a => a.Role)
-                .HasForeignKey<PrMRoleClaim>(c => c.RoleId);
+            //modelBuilder.Entity<PrMRole>()
+            //    .HasMany(a => a.RoleClaims)
+            //    .WithOne(c => c.Role)
+            //    .HasForeignKey(c => c.RoleId);
+
+            modelBuilder.Entity<PrMClient>()
+                .HasMany(c => c.LoginSessions)
+                .WithOne(l => l.Client)
+                .HasForeignKey(c => c.ClientId);
+
+            modelBuilder.Entity<LoginSessionWithResponse>()
+                .HasOne(c => c.LoginSession)
+                .WithOne(l => l.LoginSessionWithResponse)
+                .HasForeignKey<PrMRequiredLoginSession>(l => l.LoginSessionWithResponseId);
+
+            modelBuilder.Entity<LoginSessionWithResponse>()
+                .HasOne(c => c.TokenResponse)
+                .WithOne(t => t.LoginSessionWithResponse)
+                .HasForeignKey<TokenResponse>(t => t.LoginSessionWithResponseId);
+
+            modelBuilder.Entity<LoginSessionWithResponse>()
+                .HasOne(c => c.TokenExternal)
+                .WithOne(t => t.LoginSessionWithResponse)
+                .HasForeignKey<TokenExternal>(t => t.LoginSessionWithResponseId);
 
             base.OnModelCreating(modelBuilder);
         }

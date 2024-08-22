@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using IssuerOfClaims.Database;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using PrMDbModels;
 
-namespace IssuerOfClaims.Database
+namespace IssuerOfClaims.Services
 {
     public class PrMUserStore : UserStore<PrMUser, PrMRole, PrMAuthenticationContext, int, PrMUserClaim, PrMPermission, PrMUserLogin, PrMUserToken, PrMRoleClaim>
     {

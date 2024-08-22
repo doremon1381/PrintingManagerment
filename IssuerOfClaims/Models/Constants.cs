@@ -1,7 +1,7 @@
-﻿using Duende.IdentityServer.Models;
-using IdentityModel;
+﻿
+using IssuerOfClaims.Database.Model;
 
-namespace IssuerOfClaims
+namespace IssuerOfClaims.Models
 {
     /// <summary>
     /// from https://github.com/IdentityServer/IdentityServer4/blob/main/src/IdentityServer4/src/Constants.cs
@@ -126,6 +126,11 @@ namespace IssuerOfClaims
             { OidcConstants.ProtectedResourceErrors.InsufficientScope, 403 }
         };
 
+        public static int StatusCodeWithError(this string error)
+        {
+            return ProtectedResourceErrorStatusCodes[error];
+        }
+
         public static readonly Dictionary<string, IEnumerable<string>> ScopeToClaimsMapping = new Dictionary<string, IEnumerable<string>>
         {
             { IdentityServerConstants.StandardScopes.Profile, new[]
@@ -162,8 +167,21 @@ namespace IssuerOfClaims
             { IdentityServerConstants.StandardScopes.OpenId, new[]
                             {
                                 JwtClaimTypes.Subject
-                            }}
+                            }},
+            { CustomScope.Role, new[]
+                {
+                    JwtClaimTypes.Role
+                }
+            }
         };
+
+        /// <summary>
+        /// TODO: add for now
+        /// </summary>
+        public static class CustomScope
+        {
+            public static string Role = "role";
+        }
 
         public static class UIConstants
         {

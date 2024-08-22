@@ -12,7 +12,7 @@ namespace IssuerOfClaims.Models
             JwtOptions jwtOptions,
             string username,
             TimeSpan expiration,
-            PrMPermission[] permissions)
+            PrMIdentityUserRole[] permissions)
         {
             var keyBytes = Encoding.UTF8.GetBytes(jwtOptions.Key);
             var symmetricKey = new SymmetricSecurityKey(keyBytes);

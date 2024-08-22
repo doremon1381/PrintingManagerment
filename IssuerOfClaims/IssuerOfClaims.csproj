@@ -7,20 +7,35 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Database\Model\GrantType.cs" />
+    <Compile Remove="Extensions\StringExtensions.cs" />
+    <Compile Remove="Models\Constants.cs" />
+    <Compile Remove="Models\IdentityServerConstants.cs" />
+    <Compile Remove="Models\JwtClaimTypes.cs" />
+    <Compile Remove="Models\OidcConstants.cs" />
+    <Compile Remove="Services\PrMIdentityServer.cs" />
+    <Compile Remove="Services\PrMIdentityServerExtensions.cs" />
+    <Compile Remove="Services\PrMIdentityServerServicesCollectionExtensions.cs" />
+    <Compile Remove="Services\PrMUserManager.cs" />
+    <Compile Remove="Services\PrMUserStore.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Remove="client_secret_558160357396-q5qp0ppf4r5svc0g0smshfs8cdcffkm3.apps.googleusercontent.com.json" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="duende.identityserver" Version="7.0.6" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
     <PackageReference Include="jsonwebtoken" Version="1.9.4" />
     <PackageReference Include="MailKit" Version="4.7.1.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.7">
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.7">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -30,6 +45,10 @@
   <ItemGroup>
     <ProjectReference Include="..\PrMModelsDbServer\PrMModelsDbServer.csproj" />
     <ProjectReference Include="..\PrMServerUltilities\PrMServerUltilities.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
 </Project>

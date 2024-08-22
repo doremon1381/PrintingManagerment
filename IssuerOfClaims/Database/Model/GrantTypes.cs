@@ -1,4 +1,6 @@
-﻿namespace IssuerOfClaims.Database.Model
+﻿using PrMServerUltilities.Identity;
+
+namespace IssuerOfClaims.Database.Model
 {
     public class GrantTypes
     {

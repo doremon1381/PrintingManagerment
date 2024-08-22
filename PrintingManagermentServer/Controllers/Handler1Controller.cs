@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using PrintingManagermentServer.Controllers.Ultility;
 
@@ -7,6 +8,7 @@ namespace PrintingManagermentServer.Controllers
     [ApiController]
     [ControllerName("handle1")]
     [Route("[controller]")]
+    //[EnableCors("MyPolicy")]
     //[Authorize]
     public class Handler1Controller : ControllerBase
     {
@@ -22,7 +24,7 @@ namespace PrintingManagermentServer.Controllers
         [Authorize]
         public ActionResult GetSomething()
         {
-            return Ok();
+            return Ok("'Something' has been called!");
         }
     }
 }

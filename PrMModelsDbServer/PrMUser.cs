@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using System;
 #if DbServer
 using Microsoft.EntityFrameworkCore;
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
@@ -17,13 +17,15 @@ namespace PrMDbModels
 #if DbServer
         [Required]
 #endif
-        public string PasswordHashSalt { get; set; } = "";
+        public string? PasswordHashSalt { get; set; } = null;
 #if DbServer
         [Required]
 #endif
-        public string FullName { get; set; } = "";
+        public string? FullName { get; set; } = string.Empty;
+        public string? Gender { get; set; } = string.Empty;
+        //public string? Picture { get; set;} = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;
-        public string Avatar { get; set; } = "";
+        public string? Avatar { get; set; } = string.Empty;
         public bool IsEmailConfirmed { get; set; } = false;
         public DateTime CreateTime { get; set; } = DateTime.Now;
         public DateTime? UpdateTime { get; set; } = DateTime.Now;
@@ -31,6 +33,11 @@ namespace PrMDbModels
         [NotMapped]
 #endif
         public override bool EmailConfirmed { get; set; }
+        public override string? UserName { get; set; } = string.Empty;
+        /// <summary>
+        /// TODO: Will learn how to use it later
+        /// </summary>
+        public override string? SecurityStamp { get; set; } = null;
         public int? TeamId { get; set; } = null;
         public bool IsActive { get; set; } = false;
         ///// <summary>
@@ -52,10 +59,9 @@ namespace PrMDbModels
         ///// Gets or sets the normalized email address for this user.
         ///// </summary>
         //public virtual string? NormalizedEmail { get; set; }
-        public ConfirmEmail ConfirmEmail { get; set; }
-        public List<PrMPermission> PrMPermissions { get; set; } = new List<PrMPermission>();
-        public List<PrMUserClaim> PrMUserClaims { get; set; } = new List<PrMUserClaim>();
-        public List<PrMUserLogin> PrMUserLogins { get; set; } = new List<PrMUserLogin>();
+        public ConfirmEmail? ConfirmEmail { get; set; } = null;
+        public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
+        public List<LoginSessionWithResponse> LoginSessionsWithResponse { get; set; } = new List<LoginSessionWithResponse>();
 
         public PrMUser()
         {

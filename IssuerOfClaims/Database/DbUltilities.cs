@@ -1,4 +1,5 @@
-﻿using Duende.IdentityServer.Models;
+﻿using IssuerOfClaims.Database.Model;
+using PrMServerUltilities.Identity;
 
 namespace IssuerOfClaims.Database
 {

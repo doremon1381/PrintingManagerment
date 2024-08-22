@@ -1,7 +1,18 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using PrintingManagermentServer.Client;
+using PrintingManagermentServer.Controllers;
 using PrintingManagermentServer.Controllers.Ultility;
+using PrintingManagermentServer.Database;
+using PrintingManagermentServer.Services;
+using PrMModels;
 using PrMServerUltilities;
+using PrMServerUltilities.Extensions;
 using PrMServerUltilities.Identity;
+using System.Net;
+using System.Text;
+using static PrMServerUltilities.Identity.OidcConstants;
 
 namespace PrintingManagermentServer
 {
@@ -14,59 +25,38 @@ namespace PrintingManagermentServer
             // Add services to the container.
 
             builder.Services.AddControllers();
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie((options) =>
-                {
-                    options.Cookie.Name = "demo";
-                    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-                    // TODO: will change login redirect path later
-                    //options.LoginPath = "/handle1/login";
-                    //options.ReturnUrlParameter = "http://127.0.0.1:59867/";
-                    options.Events.OnRedirectToLogin = context =>
-                    {
-                        var identityServerInfo = builder.Configuration.GetSection(IdentityServerConfiguration.IDENTITYSERVER);
-
-                        var identityServerUri = identityServerInfo[IdentityServerConfiguration.AUTHORIZATION_ENDPOINT];
-                        var clientId = identityServerInfo[IdentityServerConfiguration.CLIENT_ID];
-                        var redirectUri = identityServerInfo[string.Format("{0}:0", IdentityServerConfiguration.REDIRECT_URIS)];
-
-                        var responseRedirectUri = string.Format("{0}?client_id={1}" +
-                            "&redirect_uri={2}", identityServerUri, clientId, redirectUri);
-                        // TODO: will try to implement nonce
-                        //+ "&nonce={}");
-
-                        string nonce = RNGCryptoServicesUltilities.RandomDataBase64url(10);
-
-                        context.Response.StatusCode = 401;
-                        context.Response.Headers.Add("ServerLocation", responseRedirectUri);
-                        //context.Response.Cookies.Append("nonce", nonce);
-
-                        // TODO: uncommment for wpf app test
-                        context.Response.Redirect($"http://127.0.0.1:59867?nonce={nonce}");
-                        // TODO: uncommment for wpf app test
-
-                        //context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(
-                        //    new
-                        //    {
-                        //        Location = responseRedirectUri
-                        //    }));
-
-                        return Task.CompletedTask;
-                    };
-                });
+            builder.Services.AddDbContext<IPrintingManagermentDbContext, PrintingManagermentDbContext>(optionsAction =>
+            {
+                optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUltilities.DatabaseName));
+            });
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
-            // TODO: will add later
-            //builder.Services.AddIdentity<PrMUser, IdentityRole>();
-            //.AddEntityFrameworkStores<ApplicationDbContext>();
+            builder.Services.AddScoped<ILoginSessionManager, LoginSessionManager>();
+            builder.Services.AddScoped<IUserTokenDbServices, UserTokenDbServices>();
+            builder.Services.AddSingleton(builder.Configuration.GetSection("IdentityServer").Get<ClientSettings>());
+
+            //builder.Services.AddCors(options =>
+            //{
+            //    options.AddPolicy(name: "MyPolicy",
+            //        policy =>
+            //        {
+            //            policy.WithOrigins("http://localhost:3010")
+            //                .WithMethods("PUT", "DELETE", "GET", "POST");
+            //        });
+            //});
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddScheme<JwtBearerOptions, CustomAuthenticationHandler>(JwtBearerDefaults.AuthenticationScheme,options => 
+                {
+                    builder.Configuration.Bind("Jwt", options);
+                });
             builder.Services.AddMvc(mvcOptions =>
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
             });
-
+            // TODO: use for first time run db
+            AuthorizationResources.CreateRoles(builder.Configuration);
             var app = builder.Build();
 
             SetupPipline(app);
-
             app.Run();
         }
 
@@ -95,7 +85,11 @@ namespace PrintingManagermentServer
             //});
             #endregion
             app.UseStaticFiles();
+            app.UseRouting();
+            //app.UseCors();
+
             app.UseAuthentication();
+            app.UseMiddleware<PrMUnauthorizedResponseMiddleware>();
             app.UseAuthorization();
 
 

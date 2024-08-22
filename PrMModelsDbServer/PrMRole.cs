@@ -23,8 +23,7 @@ namespace PrMDbModels
 #endif
         public override string? NormalizedName { get; set; }
         public override string? ConcurrencyStamp { get; set; }
-        public PrMRoleClaim RoleClaim { get; set; }
 
-        public List<PrMPermission> PrMPermissions { get; set; }
+        public List<PrMIdentityUserRole> PrMPermissions { get; set; }
     }
 }

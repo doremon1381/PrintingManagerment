@@ -10,6 +10,7 @@ namespace PrMDbModels
     [Table("PrMPermissions")]
     [PrimaryKey(nameof(Id))]
 #endif
+    // TODO: permission will be used for web server
     public class PrMPermission: IdentityUserRole<int>, IDbTable
     {
 #if DbServer
@@ -20,6 +21,6 @@ namespace PrMDbModels
         public override int UserId { get; set; }
 
         public PrMRole Role { get; set; } = null;
-        public PrMUser User { get; set; } = null;
+        public UserToken User { get; set; } = null;
     }
 }

@@ -1,9 +1,14 @@
+using IssuerOfClaims.Controllers;
 using IssuerOfClaims.Controllers.Ultility;
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Models;
+using IssuerOfClaims.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using PrMDbModels;
+using PrMServerUltilities.Identity;
 
 namespace IssuerOfClaims
 {
@@ -19,39 +24,24 @@ namespace IssuerOfClaims
             {
                 optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUltilities.DatabaseName));
             });
-            builder.Services.AddScoped<IPrMUserDbServices, PrMUserDbServices>();
+            builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
+            // TODO: will change later
             builder.Services.AddScoped<IPrMClientDbServices, PrMClientDbServices>();
             builder.Services.AddScoped<IPrMRoleDbServices, PrMRoleDbServices>();
-            builder.Services.AddScoped<IPrMPermissionDbServices, PrMPermissionDbServices>();
+            //builder.Services.AddScoped<IPrMIdentityUserRoleDbServices, PrMIdentityUserRoleDbServices>();
             builder.Services.AddScoped<IConfirmEmailDbServices, ConfirmEmailDbServices>();
-            builder.Services.AddSingleton(AuthorizationResources.GetClients(builder.Configuration));
-            //builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
-            MailSettings mailSettings = builder.Configuration.GetSection("MailSettings").Get<MailSettings>();
-            JwtOptions jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
-            builder.Services.AddSingleton(mailSettings);
-            builder.Services.AddSingleton(jwtOptions);
-            builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
+            builder.Services.AddScoped<ITokenResponseDbServices, TokenResponseDbServices>();
+            builder.Services.AddScoped<IPrMRequiredLoginSessionDbServices, PrMRequiredLoginSessionDbServices>();
+            builder.Services.AddScoped<IPrMUserDbServices, PrMUserDbServices>();
+            builder.Services.AddScoped<ILoginSessionWithResponseDbServices, LoginSessionWithResponseDbServices>();
+            builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
+            builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
             // TODO: will add later
-            builder.Services.AddIdentity<PrMUser, PrMRole>(options =>
-            {
-                options.User.RequireUniqueEmail = false;
-            })
-            .AddEntityFrameworkStores<PrMAuthenticationContext>()
-            .AddUserStore<PrMUserStore>()
-            .AddDefaultTokenProviders();
-            //.AddSignInManager<PrMUser>()
-            ////.AddUserManager<PrMUser>()
-            //.AddRoleManager<IdentityRole>().AddClaimsPrincipalFactory<PrMUser>();
+            builder.Services.AddIdentityCore<PrMUser>()
+                .AddEntityFrameworkStores<PrMAuthenticationContext>()
+                .AddDefaultTokenProviders();
 
-            builder.Services.AddAuthentication(defaultScheme: "cookies")
-                .AddCookie(authenticationScheme: "cookie", configureOptions: (options) =>
-                {
-                    options.Cookie.Name = "demo";
-                    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-                    options.LoginPath = "/login";
-                });
-            //.AddOpenIdConnect();
-
+            builder.Services.AddScoped<IPrMLoginSessionManager, PrMLoginSessionManager>();
 
             builder.Services.AddLogging(options =>
             {
@@ -64,21 +54,51 @@ namespace IssuerOfClaims
             //    apiVersionOptions.AssumeDefaultVersionWhenUnspecified = true;
             //    apiVersionOptions.ReportApiVersions = true;
             //});
+
+            //builder.Services.AddDistributedMemoryCache();
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                //options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            //.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,
+            .AddScheme<JwtBearerOptions, PrMAuthenticationHandler>(JwtBearerDefaults.AuthenticationScheme,
+                options =>
+                {
+                    // TODO: will check later
+                    //options.Authority = "PrMIdentityServer";
+                    //options.Audience = "http://localhost:3010/";
+                    builder.Configuration.Bind("Jwt", options);
+                    //options.TokenValidationParameters = new TokenValidationParameters
+                    //{
+                    //    ValidateIssuer = true,
+                    //    //ValidIssuer = "my-firebase-project",
+                    //    ValidateAudience = true,
+                    //    //ValidAudience = "my-firebase-project",
+                    //    ValidateLifetime = true
+                    //};
+                });
+            //builder.Services.AddAuthorization(options => 
+            //{
+            //    options.AddPolicy("RequireClient", policy => policy.RequireRole("client"));
+            //});
             builder.Services.AddMvc(mvcOptions =>
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
             });
-            builder.Services.AddDistributedMemoryCache();
-
-            builder.Services.AddSession(options =>
-            {
-                options.Cookie.Name = "PrMSession";
-                options.IdleTimeout = TimeSpan.FromSeconds(10);
-                //options.Cookie.HttpOnly = true;
-                options.Cookie.IsEssential = true;
-            });
+            // TODO: comment for now
+            //builder.Services.AddCors(options =>
+            //{
+            //    options.AddPolicy(name: "MyPolicy",
+            //        policy =>
+            //        {
+            //            policy.WithOrigins("http://localhost:3000")
+            //                .WithMethods("PUT", "DELETE", "GET", "POST");
+            //        });
+            //});
             var app = builder.Build();
-
+            // TODO: use for first time run db
+            AuthorizationResources.CreateClient(builder.Configuration);
             SetupPipline(app);
             // I intentionally separate app.run with setupPipline
             // , it's not official protocol as far as I know
@@ -90,15 +110,16 @@ namespace IssuerOfClaims
             // Configure the HTTP request pipeline.
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
+            app.UseRouting();
+            // TODO: comment for now
+            //app.UseCors();
 
             app.UseAuthentication();
-            //app.UseStaticFiles();
-            app.UseRouting();
-
             app.UseAuthorization();
 
-            app.UseSession();
-
+            // TODO: comment for now
+            //app.UseSession();
             app.MapControllers();
         }
     }
