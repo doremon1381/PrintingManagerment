@@ -570,6 +570,7 @@ namespace IssuerOfClaims.Controllers
                             else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
                                     && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
                             {
+                                // TODO: has error in this part, but I will fix it later
                                 var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
                                 string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
 
