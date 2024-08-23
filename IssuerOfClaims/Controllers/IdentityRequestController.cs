@@ -549,7 +549,25 @@ namespace IssuerOfClaims.Controllers
                             }
                             else
                             {
-                                return StatusCode(401, "re-authenticate!");
+                                // TODO; if expired, create new
+                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
+                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                                tokenResponse.AccessToken = latestLoginSession.TokenResponse.AccessToken;
+                                tokenResponse.IdToken = id_token;
+                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                                tokenResponse.RefreshToken = refresh_token;
+                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                                responseBody = new
+                                {
+                                    access_token = latestLoginSession.TokenResponse.AccessToken,
+                                    id_token = id_token,
+                                    refresh_token = refresh_token,
+                                    token_type = "Bearer",
+                                    // TODO: set by seconds
+                                    expires_in = 3600
+                                };
                             }
                         }
                         else
