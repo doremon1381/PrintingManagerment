@@ -62,7 +62,7 @@ namespace PrintingManagermentServer.Controllers
                 queryString.GetFromQueryString("client_state", out string clientState);
 
                 var loginDraft = _loginSessionManager.GetDraftFromState(clientState);
-                string codeVerifier = loginDraft.CodeVerifier;
+                string codeVerifier = loginDraft.LoginSession.CodeVerifier;
 
                 string tokenEndpointBody = string.Format("code={0}&client_id={1}&client_secret={2}&audience={3}&grant_type=authorization_code&redirect_uri={4}&code_verifier={5}&state={6}&scope="
                     , code, clientId, clientSecret, "http://localhost:7209", redirectUri, codeVerifier, currentState);
@@ -98,6 +98,14 @@ namespace PrintingManagermentServer.Controllers
                 string refresh_token = sr.refresh_token;
                 string expired_in = sr.expires_in;
 
+                loginDraft.TokenResponse = new Models.TokenResponse()
+                {
+                    AccessToken = accessToken,
+                    IdToken = id_token,
+                    RefreshToken = refresh_token,
+                    AccessTokenExpiried = DateTime.Now.AddSeconds(double.Parse(expired_in))
+                };
+
                 var handler = new JwtSecurityTokenHandler();
                 var jsonToken = handler.ReadJwtToken(id_token);
                 clientId = identityConfig.GetSection("client_id").Value;
@@ -118,29 +126,34 @@ namespace PrintingManagermentServer.Controllers
                 {
                     var nonce = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("nonce")).Value;
 
-                    if (!nonce.Equals(loginDraft.Nonce))
+                    if (!nonce.Equals(loginDraft.LoginSession.Nonce))
                         return StatusCode(404, "nonce is mismatch!");
                 }
+                jsonToken.Payload.Remove("nonce");
+
+
+                _loginSessionManager.SaveDraft(loginDraft);
+                return StatusCode(200, jsonToken.Payload);
 
                 // TODO: get user info and save to db
-                var user_info = await userinfoCall(accessToken, userInfoEnpoint);
+                //var user_info = await userinfoCall(accessToken, userInfoEnpoint);
 
-                var user = _userTokenServices.Create(new UserToken()
-                {
-                    //UserName =
-                });
+                //var user = _userTokenServices.Create(new UserToken()
+                //{
+                //    //UserName =
+                //});
 
-                var loginWithToken = new LoginSessionWithToken()
-                {
-                    //UserToken = User
-                };
-                var tokenResponse = new PrintingManagermentServer.Models.TokenResponse()
-                {
-                    AccessToken = accessToken,
-                    IdToken = id_token,
-                    RefreshToken = refresh_token,
-                    AccessTokenExpiried = DateTime.Parse(expired_in)
-                };
+                //var loginWithToken = new LoginSessionWithToken()
+                //{
+                //    //UserToken = User
+                //};
+                //var tokenResponse = new PrintingManagermentServer.Models.TokenResponse()
+                //{
+                //    AccessToken = accessToken,
+                //    IdToken = id_token,
+                //    RefreshToken = refresh_token,
+                //    AccessTokenExpiried = DateTime.Parse(expired_in)
+                //};
 
             }
             catch (Exception ex)

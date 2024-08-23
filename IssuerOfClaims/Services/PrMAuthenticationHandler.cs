@@ -41,56 +41,6 @@ namespace IssuerOfClaims.Services
                 return AuthenticateResult.NoResult();
             }
 
-            // TODO: register clients as claimPrincipal with role is set to "client" - REMOVE THIS PART
-            //     : register user as claimprincipal with role is set to "another"
-            #region obsolate
-            //if (this.Request.Method.Equals("POST"))
-            //{
-            //string[] content = Context.Request.QueryString.Value.Remove(0, 1).Split("&");
-
-            //if (content.Count() == 0)
-            //    return AuthenticateResult.Fail("Request body is missing for access token grant!");
-
-            //content.GetFromQueryString(TokenRequest.GrantType, out string grantType);
-            //if (string.IsNullOrEmpty(grantType))
-            //    return AuthenticateResult.Fail("Grant type is used for classifying authentication is belong to client or user-agent!");
-
-            //content.GetFromQueryString(TokenRequest.ClientId, out string clientId);
-            //content.GetFromQueryString(TokenRequest.ClientSecret, out string clientSecret);
-
-            //if (string.IsNullOrEmpty(clientId)
-            //    || string.IsNullOrEmpty(clientSecret)
-            //    || string.IsNullOrEmpty(grantType))
-            //    return AuthenticateResult.Fail("credential's info is missing!");
-            //// TODO: client login
-            //if (grantType.Equals(GrantTypes.ClientCredentials))
-            //{
-            //    var client = _authenticateServices.GetClientByIdAndSecret(clientId, clientSecret);
-            //    var principal = _authenticateServices.GetClaimPrincipal(client);
-
-            //    var loginSession = _authenticateServices.InitiateLoginSession(client);
-
-            //    Thread.CurrentPrincipal = principal;
-            //    if (this.Context != null)
-            //    {
-            //        Context.User = principal;
-            //    }
-            //    var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-
-            //    return AuthenticateResult.Success(ticket);
-            //}
-            //else if (grantType.Equals(GrantTypes.AuthorizationCode))
-            //{
-            //    // TODO: get client access token from header, verify client
-            //    //     : verify authorization code from header, get User from loginsession that has authrization code, set to is authenticated
-            //    //     : send to endpoint
-
-            //    // 
-            //    return AuthenticateResult.NoResult();
-            //}
-            //}
-            #endregion
-
             // TODO: user login
             var headers = this.Request.Headers;
             if (string.IsNullOrEmpty(headers.Authorization.ToString()))
@@ -110,11 +60,21 @@ namespace IssuerOfClaims.Services
                     return AuthenticateResult.Success(ticket);
                 }
 
-                // TODO: no client, out
-                requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
-                var client = _clientDbServices.GetById(clientId);
-                if (client == null)
-                    return AuthenticateResult.Fail("No client for clientId 's in header!");
+                // TODO: 12.1.  Refresh Request https://openid.net/specs/openid-connect-core-1_0.html
+                requestQuerry.GetFromQueryString(TokenRequest.GrantType, out string grantType);
+                if (!string.IsNullOrEmpty(grantType)
+                    && grantType.Contains(TokenTypes.RefreshToken))
+                {
+                    var registerClaim = GetClaimPrincipalForOfflineAccessUser();
+                    var ticket = new AuthenticationTicket(registerClaim, this.Scheme.Name);
+                    return AuthenticateResult.Success(ticket);
+                }
+
+                //// TODO: because inside this step is login, so logicaly client is not need for this, only user-credentitals is need
+                //requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
+                //var client = _clientDbServices.GetById(clientId);
+                //if (client == null)
+                //    return AuthenticateResult.Fail("No client for clientId 's in header!");
             }            
 
             // TODO: authentication allow "Basic" access - username + password
@@ -201,6 +161,16 @@ namespace IssuerOfClaims.Services
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Anonymous, "RegisterUser")
+            };
+            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_ANONYMOUS) });
+            return principal;
+        }
+
+        private ClaimsPrincipal GetClaimPrincipalForOfflineAccessUser()
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Anonymous, "OfflineAccess")
             };
             var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_ANONYMOUS) });
             return principal;

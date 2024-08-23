@@ -76,7 +76,7 @@ namespace PrintingManagermentServer.Controllers
                     return;
                 }
 
-                string responseType = "code";
+                //string responseType = "code";
                 // TODO: remove responseMode for now
                 //string responseMode = "";
                 var nonce = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
@@ -89,18 +89,22 @@ namespace PrintingManagermentServer.Controllers
                 // TODO: by default, implicit grant with form_post will not be call, comment for now
                 //var responseRedirectUri = string.Format("{0}?client_id={1}&redirect_uri={2}&response_type={3}&response_mode={4}&redirect_uri={5}&scope=openid%20profile%20email&nonce={6}", 
                 //    identityServerUri, clientId, System.Uri.EscapeDataString(redirectUri));
-                var responseRedirectUri = string.Format("{0}?client_id={1}&redirect_uri={2}&response_type={3}&scope=openid%20profile%20email&nonce={4}&code_challenge={5}&code_challenge_method={6}&client_state={7}",
-                    identityServerUri, clientId, System.Uri.EscapeDataString(redirectUri), responseType, nonce, code_challenge, code_challenge_method, clientState);
+                var responseRedirectUri = string.Format("{0}?client_id={1}&redirect_uri={2}&nonce={3}&code_challenge={4}&code_challenge_method={5}&client_state={6}",
+                    identityServerUri, clientId, System.Uri.EscapeDataString(redirectUri), nonce, code_challenge, code_challenge_method, clientState);
 
                 // TODO: 
-                LoginSessionManager.AddDraft(new LoginSession()
+                var loginSessionDraft = new LoginSessionWithToken()
                 {
-                    CodeChallenge = code_challenge,
-                    CodeVerifier = code_verifier,
-                    CodeChallengeMethod=code_challenge_method,
-                    Nonce = nonce,
-                    ClientState = clientState
-                });
+                    LoginSession = new LoginSession()
+                    {
+                        CodeChallenge = code_challenge,
+                        CodeVerifier = code_verifier,
+                        CodeChallengeMethod = code_challenge_method,
+                        Nonce = nonce,
+                        ClientState = clientState
+                    }
+                };
+                LoginSessionManager.AddDraft(loginSessionDraft);
 
                 // Create a custom response object
                 var responseBody = new

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using PrMDbModels;
 
 namespace IssuerOfClaims.Database
@@ -26,6 +27,18 @@ namespace IssuerOfClaims.Database
             return obj;
         }
 
+        public LoginSessionWithResponse FindByRefreshToken(string refreshToken)
+        {
+            var obj = _loginSession
+                .Include(l => l.User)
+                .Include(l => l.TokenResponse)
+                .Include(l => l.LoginSession)
+                .Include(l => l.TokenExternal)
+                .FirstOrDefault(l => l.TokenResponse.RefreshToken.Equals(refreshToken));
+
+            return obj;
+        }
+
         public LoginSessionWithResponse FindLoginSessionWithAuthorizationCode(string authorizationCode)
         {
             var obj = _loginSession
@@ -42,6 +55,7 @@ namespace IssuerOfClaims.Database
     public interface ILoginSessionWithResponseDbServices : IDbContextBase<LoginSessionWithResponse>
     {
         LoginSessionWithResponse FindByAccessToken(string accessToken);
+        LoginSessionWithResponse FindByRefreshToken(string refreshToken);
         LoginSessionWithResponse FindLoginSessionWithAuthorizationCode(string authorizationCode);
     }
 }

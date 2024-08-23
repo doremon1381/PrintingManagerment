@@ -106,6 +106,13 @@ namespace IssuerOfClaims.Services
             return session;
         }
 
+        public LoginSessionWithResponse FindByRefreshToken(string refreshToken)
+        {
+            var session = _loginServices.FindByRefreshToken(refreshToken);
+
+            return session;
+        }
+
         // TODO:
         // Create new session's object whenever a request involve with identity services is call, save it into a static list
         // - set for it authorization code when authorization code flow is initiated, add code challenger, add id token, access token expired time and access token follow this flow
@@ -124,6 +131,7 @@ namespace IssuerOfClaims.Services
         LoginSessionWithResponse CreateUserLoginSession(PrMUser user, PrMClient client);
         LoginSessionWithResponse FindByAuthorizationCode(string authorizationCode);
         LoginSessionWithResponse FindByAccessToken(string accessToken);
+        LoginSessionWithResponse FindByRefreshToken(string refreshToken);
         bool UpdateLoginSessionWithRelation(LoginSessionWithResponse session);
         bool UpdateInsideTokenResponse(LoginSessionWithResponse session);
         bool WhenLoginComplete(LoginSessionWithResponse session);

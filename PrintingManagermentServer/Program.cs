@@ -30,6 +30,7 @@ namespace PrintingManagermentServer
                 optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUltilities.DatabaseName));
             });
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
+            builder.Services.AddScoped<ILoginSessionWithTokenDbServices, LoginSessionWithTokenDbServices>();
             builder.Services.AddScoped<ILoginSessionManager, LoginSessionManager>();
             builder.Services.AddScoped<IUserTokenDbServices, UserTokenDbServices>();
             builder.Services.AddSingleton(builder.Configuration.GetSection("IdentityServer").Get<ClientSettings>());

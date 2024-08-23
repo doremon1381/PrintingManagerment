@@ -68,7 +68,7 @@ namespace IssuerOfClaims.Database
                 .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
                 .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.LoginSession)
                 .Include(u => u.ConfirmEmail)
-                .First(user => user.UserName.Equals(userName));
+                .FirstOrDefault(user => user.UserName.Equals(userName));
 
             return user;
         }

@@ -60,8 +60,10 @@ namespace PrintingManagermentServer.Database
         }
     }
 
-    internal interface IPrintingManagermentDbContext
+    public interface IPrintingManagermentDbContext
     {
+        void DbSaveChanges();
+        DbSet<TEntity> GetDbSet<TEntity>() where TEntity : class;
     }
 
     // TODO: for migration

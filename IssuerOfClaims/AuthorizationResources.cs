@@ -34,14 +34,14 @@ namespace IssuerOfClaims
                 printingManagermentServer.RedirectUris = ("http://localhost:5173/signin-oidc");
                 printingManagermentServer.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentServer.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
-                printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}";
+                printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}, offline_access";
                 //"api1", "api2.read_only"
 
                 var printingManagermentDbServer = new PrMClient();
                 printingManagermentDbServer.ClientId = "PrintingManagermentDbServer";
                 printingManagermentDbServer.ClientSecrets = (new PrMSecret("secretServerDb".Sha256()).Value);
                 printingManagermentDbServer.AllowedGrantTypes = (GrantType.ClientCredentials);
-                printingManagermentDbServer.AllowedScopes = ("oauth2");
+                printingManagermentDbServer.AllowedScopes = ("oauth2, offline_access");
 
                 var printingManagermentWeb = new PrMClient();
                 printingManagermentWeb.ClientId = "PrintingManagermentWeb";
@@ -50,7 +50,7 @@ namespace IssuerOfClaims
                 printingManagermentWeb.RedirectUris = ("http://localhost:5173/signin-oidc");
                 printingManagermentWeb.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentWeb.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
-                printingManagermentWeb.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}";
+                printingManagermentWeb.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}, offline_access";
 
                 var newClients = new List<PrMClient>() { printingManagermentServer, printingManagermentDbServer, printingManagermentWeb };
 

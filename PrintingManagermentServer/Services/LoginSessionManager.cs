@@ -1,31 +1,46 @@
-﻿using PrintingManagermentServer.Models;
+﻿using PrintingManagermentServer.Database;
+using PrintingManagermentServer.Models;
 
 namespace PrintingManagermentServer.Services
 {
-    public class LoginSessionManager: ILoginSessionManager
+    public class LoginSessionManager : ILoginSessionManager
     {
-        private static List<LoginSession> _LoginSession = new List<LoginSession>();
+        private static List<LoginSessionWithToken> _LoginSession = new List<LoginSessionWithToken>();
+        private ILoginSessionWithTokenDbServices _sessionWithTokenServices;
 
-        public LoginSessionManager()
+        public LoginSessionManager(ILoginSessionWithTokenDbServices sessionWithTokenServices)
         {
-
+            _sessionWithTokenServices = sessionWithTokenServices;
         }
 
-        internal static void AddDraft(LoginSession session)
+        internal static void AddDraft(LoginSessionWithToken session)
         {
-            _LoginSession.Add(session); 
+            _LoginSession.Add(session);
         }
 
-        public LoginSession GetDraftFromState(string clientState)
+        public LoginSessionWithToken GetDraftFromState(string clientState)
         {
-            var obj = _LoginSession.FirstOrDefault(l => l.ClientState == clientState);
+            var obj = _LoginSession.FirstOrDefault(l => l.LoginSession.ClientState == clientState);
 
             return obj;
+        }
+
+        public LoginSessionWithToken SaveDraft(LoginSessionWithToken session)
+        {
+            var current = _LoginSession.FirstOrDefault(s => s.LoginSession.ClientState.Equals(session.LoginSession.ClientState));
+            if (_LoginSession.FirstOrDefault(s => s.LoginSession.ClientState.Equals(session.LoginSession.ClientState)) != null)
+            {
+                _sessionWithTokenServices.Create(session);
+                _LoginSession.Remove(current);
+            }
+
+            return session;
         }
     }
 
     public interface ILoginSessionManager
     {
-        LoginSession GetDraftFromState(string clientState);
+        LoginSessionWithToken GetDraftFromState(string clientState);
+        LoginSessionWithToken SaveDraft(LoginSessionWithToken session);
     }
 }

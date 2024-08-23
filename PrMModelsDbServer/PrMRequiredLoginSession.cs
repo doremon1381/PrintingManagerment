@@ -42,6 +42,8 @@ namespace PrMDbModels
         /// </summary>
         public bool IsInLoginSession { get; set; } = true;
 
+        public bool IsOfflineAccess { get; set; } = false;
+
         [ForeignKey("LoginSessionWithResponseId")]
         public int? LoginSessionWithResponseId { get; set; }
         public LoginSessionWithResponse? LoginSessionWithResponse { get; set; }

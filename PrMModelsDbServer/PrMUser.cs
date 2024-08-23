@@ -41,24 +41,9 @@ namespace PrMDbModels
         public int? TeamId { get; set; } = null;
         public bool IsActive { get; set; } = false;
         ///// <summary>
-        ///// A random value that must change whenever a user is persisted to the store
+        ///// TODO: to allow user-agent can use refresh-token to get new access token using token enpoint
         ///// </summary>
-        //public virtual string? ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString();
-        ///// <summary>
-        ///// Gets or sets the date and time, in UTC, when any user lockout ends.
-        ///// </summary>
-        ///// <remarks>
-        ///// A value in the past means the user is not locked out.
-        ///// </remarks>
-        //public virtual DateTimeOffset? LockoutEnd { get; set; }
-        ///// <summary>
-        ///// Gets or sets the normalized user name for this user.
-        ///// </summary>
-        //public virtual string? NormalizedUserName { get; set; }
-        ///// <summary>
-        ///// Gets or sets the normalized email address for this user.
-        ///// </summary>
-        //public virtual string? NormalizedEmail { get; set; }
+        //public bool IsOfflineAccess { get; set; } = true;
         public ConfirmEmail? ConfirmEmail { get; set; } = null;
         public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
         public List<LoginSessionWithResponse> LoginSessionsWithResponse { get; set; } = new List<LoginSessionWithResponse>();
