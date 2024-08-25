@@ -111,6 +111,7 @@ namespace PrintingManagermentServer.Controllers
                 {
                     status = 302,
                     state = state,
+                    client_state = clientState,
                     message = "redirect uri is inside response header!"
                 };
 

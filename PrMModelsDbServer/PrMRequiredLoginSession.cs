@@ -29,7 +29,7 @@ namespace PrMDbModels
         /// From client
         /// </summary>
         public string? Nonce { get; set; } = string.Empty;
-        public string? ClientState { get; set; } = string.Empty;
+        //public string? ClientState { get; set; } = string.Empty;
         public string? Scope { get; set; } = string.Empty;
         /// <summary>
         /// Value of this property is from TokenValidationPrinciples

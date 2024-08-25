@@ -30,6 +30,7 @@ namespace PrintingManagermentServer.Services
             var current = _LoginSession.FirstOrDefault(s => s.LoginSession.ClientState.Equals(session.LoginSession.ClientState));
             if (_LoginSession.FirstOrDefault(s => s.LoginSession.ClientState.Equals(session.LoginSession.ClientState)) != null)
             {
+                session.TokenResponse.LoginSessionWithToken = session;
                 _sessionWithTokenServices.Create(session);
                 _LoginSession.Remove(current);
             }

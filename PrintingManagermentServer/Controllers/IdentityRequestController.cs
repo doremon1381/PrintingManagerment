@@ -59,6 +59,7 @@ namespace PrintingManagermentServer.Controllers
 
                 // TODO: at this step, get a draft of login session in session manager, which has client_state as same as incoming client_state from user-agent
                 queryString.GetFromQueryString(TokenRequest.Code, out string code);
+                // TODO: instead of using client_state, use nonce for determining this response is for what login session 
                 queryString.GetFromQueryString("client_state", out string clientState);
 
                 var loginDraft = _loginSessionManager.GetDraftFromState(clientState);

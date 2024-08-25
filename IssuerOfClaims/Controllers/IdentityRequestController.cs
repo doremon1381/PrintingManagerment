@@ -211,13 +211,13 @@ namespace IssuerOfClaims.Controllers
 
             requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallenge, out string codeChallenge);
             requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallengeMethod, out string codeChallengeMethod);
-            requestQuerry.GetFromQueryString("client_state", out string clientState);
+            //requestQuerry.GetFromQueryString("client_state", out string clientState);
 
             sessionAndResponse.LoginSession.CodeChallengeMethod = codeChallengeMethod;
             sessionAndResponse.LoginSession.CodeChallenge = codeChallenge;
             sessionAndResponse.LoginSession.AuthorizationCode = authorizationCode;
             sessionAndResponse.LoginSession.Nonce = nonce;
-            sessionAndResponse.LoginSession.ClientState = clientState;
+            //sessionAndResponse.LoginSession.ClientState = clientState;
             sessionAndResponse.LoginSession.Scope = scope;
             sessionAndResponse.LoginSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
 
@@ -237,7 +237,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: I don't know why if add "Location" as key in response header, the response will be sent in vuejs's web is with status code 200,
             //     : but if I modify the name, for example, to "Location1", then the response will has status code 302 as I set to it before...
-            HttpContext.Response.Headers.Append("IdentityLocation", string.Format("{0}?client_state={1}&code={2}", redirectUri, clientState, authorizationCode));
+            HttpContext.Response.Headers.Append("IdentityLocation", string.Format("{0}?code={1}", redirectUri, authorizationCode));
             // Serialize the custom response object to JSON and write it to the response body
             await HttpContext.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(responseBody));
 
@@ -523,8 +523,10 @@ namespace IssuerOfClaims.Controllers
                     bool isOfflineAccess = loginSession.LoginSession.IsOfflineAccess;
                     if (isOfflineAccess)
                     {
+                        // TODO: latest token response does not have refresh token
                         if (latestLoginSession.TokenResponse.RefreshTokenExpiried == null)
                         {
+                            // TODO: latest access token can be used
                             if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now)
                             {
                                 var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
@@ -533,20 +535,16 @@ namespace IssuerOfClaims.Controllers
 
                                 tokenResponse.AccessToken = access_token;
                                 tokenResponse.IdToken = id_token;
-                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                                tokenResponse.AccessTokenExpiried = latestLoginSession.TokenResponse.AccessTokenExpiried;
                                 tokenResponse.RefreshToken = refresh_token;
                                 tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
 
-                                responseBody = new
-                                {
-                                    access_token = access_token,
-                                    id_token = id_token,
-                                    refresh_token = refresh_token,
-                                    token_type = "Bearer",
-                                    // TODO: set by seconds
-                                    expires_in = (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds
-                                };
+                                responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token,
+                                    // TODO: count the remaining seconds which the access token can be usefull
+                                    (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds, 
+                                    tokenResponse.RefreshToken);
                             }
+                            // TODO: latest access token can not be re-used, expired
                             else
                             {
                                 // TODO; if expired, create new
@@ -559,36 +557,26 @@ namespace IssuerOfClaims.Controllers
                                 tokenResponse.RefreshToken = refresh_token;
                                 tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
 
-                                responseBody = new
-                                {
-                                    access_token = latestLoginSession.TokenResponse.AccessToken,
-                                    id_token = id_token,
-                                    refresh_token = refresh_token,
-                                    token_type = "Bearer",
-                                    // TODO: set by seconds
-                                    expires_in = 3600
-                                };
+                                responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600, tokenResponse.RefreshToken);
                             }
                         }
+                        // TODO: latest token response has refresh token
                         else
                         {
+                            // TODO: access token and refresh token can be re-used 
                             if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now
                                 && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
                             {
-                                responseBody = new
-                                {
-                                    access_token = latestLoginSession.TokenResponse.AccessToken,
-                                    id_token = id_token,
-                                    refresh_token = latestLoginSession.TokenResponse.RefreshToken,
-                                    token_type = "Bearer",
-                                    // TODO: set by seconds
-                                    expires_in = (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds
-                                };
+                                responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token,
+                                    // TODO: count the remaining seconds which the access token can be usefull
+                                    (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds,
+                                    latestLoginSession.TokenResponse.RefreshToken);
                             }
+                            // TODO: has error in this part, but I will fix it later
+                            // TODO: refresh token can be re-used, but not access token
                             else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
                                     && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
                             {
-                                // TODO: has error in this part, but I will fix it later
                                 var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
                                 string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
 
@@ -596,78 +584,63 @@ namespace IssuerOfClaims.Controllers
                                 tokenResponse.IdToken = id_token;
                                 tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
 
-                                if (isOfflineAccess)
+                                var refresh_token = latestLoginSession.TokenResponse.RefreshToken;
+                                if (string.IsNullOrEmpty(refresh_token))
+                                    refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                                tokenResponse.RefreshToken = refresh_token;
+                                DateTime expiredIn = DateTime.Now;
+                                if (latestLoginSession.TokenResponse.RefreshTokenExpiried != null)
                                 {
-                                    var refresh_token = latestLoginSession.TokenResponse.RefreshToken;
-                                    if (string.IsNullOrEmpty(refresh_token))
-                                        refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                                    TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
+                                    double seconds = diff.TotalSeconds;
 
-                                    tokenResponse.RefreshToken = refresh_token;
-                                    DateTime expiredIn = DateTime.Now;
-                                    if (latestLoginSession.TokenResponse.RefreshTokenExpiried != null)
-                                    {
-                                        TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
-                                        double seconds = diff.TotalSeconds;
-
-                                        expiredIn.AddSeconds(seconds);
-                                    }
-
-                                    tokenResponse.RefreshTokenExpiried = expiredIn;
-
-                                    responseBody = new
-                                    {
-                                        access_token = access_token,
-                                        id_token = id_token,
-                                        refresh_token = refresh_token,
-                                        token_type = "Bearer",
-                                        // TODO: set by seconds
-                                        expires_in = tokenResponse.AccessTokenExpiried
-                                    };
+                                    expiredIn.AddSeconds(seconds);
                                 }
-                                else
-                                {
-                                    responseBody = new
-                                    {
-                                        access_token = access_token,
-                                        id_token = id_token,
-                                        token_type = "Bearer",
-                                        // TODO: set by seconds
-                                        expires_in = tokenResponse.AccessTokenExpiried
-                                    };
-                                }
+
+                                tokenResponse.RefreshTokenExpiried = expiredIn;
+
+                                responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token, 3600, tokenResponse.RefreshToken);
 
                                 loginSession.TokenResponse = tokenResponse;
                             }
-
+                            // TODO: neither access token and refresh token cant be re-used
                             else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
                                 && latestLoginSession.TokenResponse.RefreshTokenExpiried < DateTime.Now)
                             {
-                                return StatusCode(401, "re-authenticate!");
+                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
+                                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                                tokenResponse.AccessToken = access_token;
+                                tokenResponse.IdToken = id_token;
+                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                                tokenResponse.RefreshToken = refresh_token;
+                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                                responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
                             }
                         }
                     }
-                    else
+                    else if (!isOfflineAccess)
                     {
-                        if (loginSession.TokenResponse.AccessTokenExpiried < DateTime.Now)
-                            return StatusCode(401, "re-authenticate!");
-
-                        // TODO: need to re-authenticate
-                        var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                        string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                        tokenResponse.AccessToken = access_token;
-                        tokenResponse.IdToken = id_token;
-                        tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                        responseBody = new
+                        if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now)
                         {
-                            access_token = access_token,
-                            id_token = id_token,
-                            token_type = "Bearer",
-                            // TODO: set by seconds
-                            expires_in = 3600
-                        };
+                            responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600);
+                        }
+                        else
+                        {
+                            // TODO: re-authenticate
+                            var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
+                            string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
 
-                        loginSession.TokenResponse = tokenResponse;
+                            tokenResponse.AccessToken = access_token;
+                            tokenResponse.IdToken = id_token;
+                            tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                            loginSession.TokenResponse = tokenResponse;
+
+                            responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600);
+                        }
                     }
 
                     loginSession.LoginSession.IsInLoginSession = false;
@@ -676,8 +649,7 @@ namespace IssuerOfClaims.Controllers
 
                     return Ok(JsonConvert.SerializeObject(responseBody));
                 }
-                else
-                //if (loginSession.TokenResponse == null)
+                else if (loginSession.TokenResponse == null)
                 {
                     bool isOfflineAccess = loginSession.LoginSession.IsOfflineAccess;
                     var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
@@ -693,26 +665,11 @@ namespace IssuerOfClaims.Controllers
                         tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
                         tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
 
-                        responseBody = new
-                        {
-                            access_token = access_token,
-                            id_token = id_token,
-                            refresh_token = refresh_token,
-                            token_type = "Bearer",
-                            // TODO: set by seconds
-                            expires_in = 3600
-                        };
+                        responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
                     }
                     else
                     {
-                        responseBody = new
-                        {
-                            access_token = access_token,
-                            id_token = id_token,
-                            token_type = "Bearer",
-                            // TODO: set by seconds
-                            expires_in = 3600
-                        };
+                        responseBody = CreateTokenResponseBody(access_token, id_token, 3600);
                     }
 
                     loginSession.TokenResponse = tokenResponse;
@@ -730,6 +687,34 @@ namespace IssuerOfClaims.Controllers
             }
 
             return StatusCode(200);
+        }
+
+        private static object CreateTokenResponseBody(string access_token, string id_token, double expired_in, string refresh_token = "")
+        {
+            object responseBody;
+            if (string.IsNullOrEmpty(refresh_token))
+            {
+                responseBody = new
+                {
+                    access_token = access_token,
+                    id_token = id_token,
+                    token_type = "Bearer",
+                    // TODO: set by seconds
+                    expires_in = expired_in
+                };
+            }
+            else
+                responseBody = new
+                {
+                    access_token = access_token,
+                    id_token = id_token,
+                    refresh_token = refresh_token,
+                    token_type = "Bearer",
+                    // TODO: set by seconds
+                    expires_in = expired_in
+                };
+
+            return responseBody;
         }
 
         // TODO: by oauth flow, need access token to be verified before using this function

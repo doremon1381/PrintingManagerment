@@ -20,7 +20,10 @@ namespace PrintingManagermentServer.Models
         /// From client
         /// </summary>
         public string? CodeChallengeMethod { get; set; } = string.Empty;
-
+        
+        /// <summary>
+        /// TODO: for user-agent
+        /// </summary>
         public string? ClientState { get; set; } = string.Empty;
         public string? Nonce { get; set; } = string.Empty;
 
