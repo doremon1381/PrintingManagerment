@@ -597,10 +597,11 @@ namespace IssuerOfClaims.Controllers
                                 DateTime expiredIn = DateTime.Now;
                                 if (latestLoginSession.TokenResponse.RefreshTokenExpiried != null)
                                 {
-                                    TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
-                                    double seconds = diff.TotalSeconds;
+                                    //TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
+                                    //double seconds = diff.TotalSeconds;
 
-                                    expiredIn.AddSeconds(seconds);
+                                    //expiredIn.AddSeconds(seconds);
+                                    expiredIn = latestLoginSession.TokenResponse.RefreshTokenExpiried.Value;
                                 }
 
                                 tokenResponse.RefreshTokenExpiried = expiredIn;
