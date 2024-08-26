@@ -31,7 +31,7 @@ namespace IssuerOfClaims
                 printingManagermentServer.ClientId = "PrintingManagermentServer";
                 printingManagermentServer.ClientSecrets = (new PrMSecret("secretServer".Sha256()).Value);
                 printingManagermentServer.AllowedGrantTypes = (GrantType.ClientCredentials);
-                printingManagermentServer.RedirectUris = ("http://localhost:5173/signin-oidc");
+                printingManagermentServer.RedirectUris = ("http://localhost:59867,http://localhost:5173/signin-oidc");
                 printingManagermentServer.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentServer.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
                 printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}, offline_access";
@@ -47,7 +47,8 @@ namespace IssuerOfClaims
                 printingManagermentWeb.ClientId = "PrintingManagermentWeb";
                 printingManagermentWeb.ClientSecrets = (new PrMSecret("secretWeb".Sha256()).Value);
                 printingManagermentWeb.AllowedGrantTypes = (GrantType.AuthorizationCode);
-                printingManagermentWeb.RedirectUris = ("http://localhost:5173/signin-oidc");
+                //printingManagermentWeb.RedirectUris = ("http://localhost:7209/callback");
+                printingManagermentWeb.RedirectUris = ("http://localhost:59867,http://localhost:5173/signin-oidc");
                 printingManagermentWeb.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentWeb.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
                 printingManagermentWeb.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}, offline_access";

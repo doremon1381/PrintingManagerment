@@ -17,10 +17,10 @@
         public const string EMAIL_ID = "EmailId";
         public const string NAME = "Name";
         public const string USER_NAME = "UserName";
-        public const string PASSWORD = "UserName";
-        public const string HOST = "UserName";
-        public const string PORT = "UserName";
-        public const string USESSL = "UserName";
-        public const string DEFAULT_CREDENTIALS = "UserName";
+        public const string PASSWORD = "Password";
+        public const string HOST = "Host";
+        public const string PORT = "Port";
+        public const string USESSL = "Usessl";
+        public const string DEFAULT_CREDENTIALS = "Default_credentials";
     }
 }

@@ -78,16 +78,35 @@ namespace IssuerOfClaims.Controllers
             //    if asking for google, then send a redirect to google to get authorization code
             //    if basic access (I mean implicit grant - form_post or not), then return a redirect to another request to identity server - send request to "authentication/basicAccess" route
             // 3.
+            var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
+
+
+            // TODO: from https://openid.net/specs/openid-connect-prompt-create-1_0.html
+            //     : When the prompt parameter is used in an authorization request to the authorization endpoint with the value of create,
+            //     : it indicates that the user has chosen to be shown the account creation experience rather than the login experience
+            requestQuerry.GetFromQueryString(AuthorizeRequest.Prompt, out string prompt);
+
+            // TODO: try to add nonce in flow, will check it late
+            //     : because "state" still RECOMMENDED in some case, so I will use it when it's provided for identity server
+            requestQuerry.GetFromQueryString(AuthorizeRequest.State, out string state);
+
+            //if (string.IsNullOrEmpty(state))
+            //    return StatusCode(400, "State of request must be implemented to avoid cross-site request forgery!");
+            // https://openid.net/specs/openid-connect-prompt-create-1_0.html
+            // TODO: validate propmt need to wait
+            if (!string.IsNullOrEmpty(prompt)
+                && prompt.Equals("create"))
+            {
+                return await RegisterUser(state);
+            }
 
             var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
-            string[] redirectUris = webServerConfiguration.GetSection(IdentityServerConfiguration.REDIRECT_URIS).Get<string[]>();
 
             // TODO: why code is not included in request's header,
             //     : because I like it to be include in query's string!
             if (!HttpContext.Request.QueryString.HasValue)
                 return StatusCode(400, "Request must containt query string for authorization!");
 
-            var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
 
             requestQuerry.GetFromQueryString(AuthorizeRequest.ResponseType, out string responseType);
 
@@ -104,6 +123,13 @@ namespace IssuerOfClaims.Controllers
             if (string.IsNullOrEmpty(responseMode))
                 responseMode = GetDefaultResponseModeByResponseType(responseType);
 
+            // TODO: need to compare with existing client in memory or database
+            requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
+            if (string.IsNullOrEmpty(clientId))
+                return StatusCode(400, "client id is mismatch!");
+
+            var client = _clientDbServices.GetById(clientId);
+            string[] redirectUris = client.RedirectUris.Split(",");
             // TODO: because in implicit grant flow, redirectUri is use to redirect to user-agent, 
             //     : in logically, client does not know it before user-agent send a redirect_uri to client
             //     : with browser's work, I think many browser can be user-agent, so it will be safe when client asks for redirect_uri from user-agent
@@ -117,16 +143,6 @@ namespace IssuerOfClaims.Controllers
             // TODO: try to add nonce in flow, will check it late
             //     : because "nonce" still OPTIONAL in some case, so I will use it when it's provided for identity server
             requestQuerry.GetFromQueryString(AuthorizeRequest.Nonce, out string nonce);
-            // TODO: try to add nonce in flow, will check it late
-            //     : because "state" still RECOMMENDED in some case, so I will use it when it's provided for identity server
-            requestQuerry.GetFromQueryString(AuthorizeRequest.State, out string state);
-            //if (string.IsNullOrEmpty(state))
-            //    return StatusCode(400, "State of request must be implemented to avoid cross-site request forgery!");
-
-            // TODO: need to compare with existing client in memory or database
-            requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
-            if (string.IsNullOrEmpty(clientId))
-                return StatusCode(400, "client id is mismatch!");
 
             //TODO: base on scope, I will add claims in id token, so it will need to be verified with client's scope in memory or database
             //    : Verify that a scope parameter is present and contains the openid scope value.
@@ -135,40 +151,27 @@ namespace IssuerOfClaims.Controllers
             if (string.IsNullOrEmpty(scope))
                 return StatusCode(ProtectedResourceErrors.InsufficientScope.StatusCodeWithError(), ProtectedResourceErrors.InsufficientScope);
 
-            // TODO: from https://openid.net/specs/openid-connect-prompt-create-1_0.html
-            //     : When the prompt parameter is used in an authorization request to the authorization endpoint with the value of create,
-            //     : it indicates that the user has chosen to be shown the account creation experience rather than the login experience
-            requestQuerry.GetFromQueryString(AuthorizeRequest.Prompt, out string prompt);
-
             var headers = HttpContext.Request.Headers;
 
-            // https://openid.net/specs/openid-connect-prompt-create-1_0.html
-            // TODO: validate propmt need to wait
-            if (!string.IsNullOrEmpty(prompt)
-                && prompt.Equals("create"))
-            {
-                return await RegisterUser(state);
-            }
+
+            if (scope.Contains(IdentityServerConstants.StandardScopes.OpenId))
+                switch (responseType)
+                {
+                    case ResponseTypes.Code:
+                        return await AuthorizationCodeFlow(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
+                    //break;
+                    case ResponseTypes.IdToken:
+                        return await ImplicitGrantWithFormPost(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
+                    //break;
+                    // TODO: will implement another flow if I have time
+                    default:
+                        break;
+                }
             else
             {
-                if (scope.Contains(IdentityServerConstants.StandardScopes.OpenId))
-                    switch (responseType)
-                    {
-                        case ResponseTypes.Code:
-                            return await AuthorizationCodeFlow(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
-                        //break;
-                        case ResponseTypes.IdToken:
-                            return await ImplicitGrantWithFormPost(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
-                        //break;
-                        // TODO: will implement another flow if I have time
-                        default:
-                            break;
-                    }
-                else
-                {
-                    // TODO: if in scope doesnot have openid, it still valid in some case but it's not an Authentication Request that use Oauth2 as standard
-                }
+                // TODO: if in scope doesnot have openid, it still valid in some case but it's not an Authentication Request that use Oauth2 as standard
             }
+
 
             return StatusCode(500, "Not yet know why...");
         }
@@ -226,12 +229,12 @@ namespace IssuerOfClaims.Controllers
             // Create a custom response object
             var responseBody = new
             {
-                status = 302,
                 state = state,
                 code = authorizationCode
             };
 
-            HttpContext.Response.StatusCode = 302;
+            // TODO: change for now
+            HttpContext.Response.StatusCode = 200;
             // TODO: has error
             //HttpContext.Response.Headers.Append("state", state);
 
@@ -488,7 +491,7 @@ namespace IssuerOfClaims.Controllers
             //Ensure that the redirect_uri parameter value is identical to the redirect_uri parameter value that was included in the initial Authorization Request.
             //If the redirect_uri parameter value is not present when there is only one registered redirect_uri value,
             //the Authorization Server MAY return an error(since the Client should have included the parameter) or MAY proceed without an error(since OAuth 2.0 permits the parameter to be omitted in this case).
-            var redirectUris = webServerConfiguration.GetSection("redirect_uris").Get<string[]>();
+            string[] redirectUris = client.RedirectUris.Split(",");
             var redirectUri = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.RedirectUri)).Split("=")[1];
             if (!redirectUris.Contains(redirectUri))
                 return StatusCode(400, "redirect_uri is mismatch!");
@@ -497,6 +500,8 @@ namespace IssuerOfClaims.Controllers
             if (loginSession.LoginSession.CodeChallenge != null && loginSession.LoginSession.CodeChallengeMethod != null)
             {
                 var codeVerifier = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.CodeVerifier)).Split("=")[1];
+                if (string.IsNullOrEmpty(codeVerifier))
+                    return StatusCode(400, "code challenge is included in authorization code request but does not have in access token request!");
 
                 var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.WithSHA265());
                 if (!code_challenge.Equals(loginSession.LoginSession.CodeChallenge))
@@ -541,7 +546,7 @@ namespace IssuerOfClaims.Controllers
 
                                 responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token,
                                     // TODO: count the remaining seconds which the access token can be usefull
-                                    (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds, 
+                                    (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds,
                                     tokenResponse.RefreshToken);
                             }
                             // TODO: latest access token can not be re-used, expired
@@ -863,8 +868,6 @@ namespace IssuerOfClaims.Controllers
             //string projectId = googleClientConfiguration[IdentityServerConfiguration.PROJECT_ID];
             //string userInfoEndpoint = "https://www.googleapis.com/oauth2/userinfo";
 
-            // TODO: why code is not included in request's header,
-            //     : because I like it to be include in query's string!
             if (!HttpContext.Request.QueryString.HasValue)
                 return StatusCode(400, "Query string of google authenticate request must have value!");
 
