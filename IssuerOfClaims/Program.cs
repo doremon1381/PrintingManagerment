@@ -92,8 +92,8 @@ namespace IssuerOfClaims
             //    options.AddPolicy(name: "MyPolicy",
             //        policy =>
             //        {
-            //            policy.WithOrigins("http://localhost:3000")
-            //                .WithMethods("PUT", "DELETE", "GET", "POST");
+            //            policy.WithOrigins("http://localhost:5173")
+            //                .WithMethods("PUT", "DELETE", "GET", "POST", "OPTIONS");
             //        });
             //});
             var app = builder.Build();
@@ -113,9 +113,30 @@ namespace IssuerOfClaims
             app.UseStaticFiles();
             app.UseRouting();
             // TODO: comment for now
-            //app.UseCors();
+            //app.UseCors("MyPolicy");
 
             app.UseAuthentication();
+            // TODO: deal with CORS, may change in the future
+            //     : https://www.codemzy.com/blog/get-axios-response-headers
+            app.Use(async (context, next) =>
+            {
+                context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+                context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+                context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, state");
+                context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+                context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, Location, location");
+
+                string endpointUrl = context.Request.Host.ToString();
+
+                // TODO: for now, I assume that every request using this particular method and endpoint, is used for preflight in CORS, I will learn about it later
+                if (context.Request.Method.Equals("OPTIONS") && endpointUrl.Equals("localhost:7180"))
+                {
+                    context.Response.StatusCode = 200;
+                    return;// Short-circuit the pipeline, preventing further middleware execution
+                }
+
+                next(context);
+            });
             app.UseAuthorization();
 
             // TODO: comment for now
