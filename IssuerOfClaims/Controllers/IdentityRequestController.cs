@@ -240,7 +240,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: I don't know why if add "Location" as key in response header, the response will be sent in vuejs's web is with status code 200,
             //     : but if I modify the name, for example, to "Location1", then the response will has status code 302 as I set to it before...
-            HttpContext.Response.Headers.Append("IdentityLocation", string.Format("{0}?code={1}", redirectUri, authorizationCode));
+            HttpContext.Response.Headers.Append("Location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
             // Serialize the custom response object to JSON and write it to the response body
             await HttpContext.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(responseBody));
 
@@ -1036,13 +1036,13 @@ namespace IssuerOfClaims.Controllers
             try
             {
                 var headers = HttpContext.Request.Headers;
-                if (headers.Authorization[0] == null)
-                    return StatusCode(400, "Authorization header is missing!");
+                if (headers["Register"][0] == null)
+                    return StatusCode(400, "Register header is missing!");
 
-                var authorization = headers.Authorization[0];
+                var userCredentials = headers["Register"][0];
                 string email = headers["Email"];
                 //var roles = headers["Roles"].ToString().Split(",");
-                var userNamePassword = (authorization.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
+                var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
 
                 // TODO: will need to validate username and password, from client and server
                 string userName = userNamePassword.Split(":")[0];
@@ -1227,16 +1227,17 @@ namespace IssuerOfClaims.Controllers
             {
                 // TODO: will add more
                 claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
-                claims.Add(new Claim("Username", user.UserName));
+                //claims.Add(new Claim("username", user.UserName));
                 claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
                 claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
                 claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
+                claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
                 //claims.Add(new Claim(JwtClaimTypes.Locale, user.lo))
             }
             if (scopes.Contains(IdentityServerConstants.StandardScopes.Email))
             {
                 claims.Add(new Claim(JwtClaimTypes.Email, user.Email));
-                claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.EmailConfirmed.ToString()));
+                claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()));
             }
             if (scopes.Contains(IdentityServerConstants.StandardScopes.Phone))
             {

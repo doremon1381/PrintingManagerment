@@ -43,21 +43,23 @@ namespace IssuerOfClaims.Services
 
             // TODO: user login
             var headers = this.Request.Headers;
-            if (string.IsNullOrEmpty(headers.Authorization.ToString()))
-                return AuthenticateResult.Fail("Authentication's identity inside request headers is missing!");
             if (!string.IsNullOrEmpty(this.Context.Request.QueryString.Value))
             {
                 var requestQuerry = this.Context.Request.QueryString.Value.Remove(0, 1).Split("&");
 
-                // TODO: check if it is register new user request first, because "authorize" enpoint is decorated with [Authorize] attribute.
-                //     : get prompt to use from https://openid.net/specs/openid-connect-prompt-create-1_0.html
-                requestQuerry.GetFromQueryString(AuthorizeRequest.Prompt, out string prompt);
-                if (!string.IsNullOrEmpty(prompt)
-                    && prompt.Equals("create"))
+                var registerHeader = headers["Register"].ToString();
+                if (!string.IsNullOrEmpty(registerHeader))
                 {
-                    var registerClaim = GetClaimPrincipalForRegisterUser();
-                    var ticket = new AuthenticationTicket(registerClaim, this.Scheme.Name);
-                    return AuthenticateResult.Success(ticket);
+                    // TODO: check if it is register new user request first, because "authorize" enpoint is decorated with [Authorize] attribute.
+                    //     : get prompt to use from https://openid.net/specs/openid-connect-prompt-create-1_0.html
+                    requestQuerry.GetFromQueryString(AuthorizeRequest.Prompt, out string prompt);
+                    if (!string.IsNullOrEmpty(prompt)
+                        && prompt.Equals("create"))
+                    {
+                        var registerClaim = GetClaimPrincipalForRegisterUser();
+                        var ticket = new AuthenticationTicket(registerClaim, this.Scheme.Name);
+                        return AuthenticateResult.Success(ticket);
+                    }
                 }
 
                 // TODO: 12.1.  Refresh Request https://openid.net/specs/openid-connect-core-1_0.html
@@ -75,8 +77,10 @@ namespace IssuerOfClaims.Services
                 //var client = _clientDbServices.GetById(clientId);
                 //if (client == null)
                 //    return AuthenticateResult.Fail("No client for clientId 's in header!");
-            }            
+            }
 
+            if (string.IsNullOrEmpty(headers.Authorization.ToString()))
+                return AuthenticateResult.Fail("Authentication's identity inside request headers is missing!");
             // TODO: authentication allow "Basic" access - username + password
             if (headers.Authorization.ToString().StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
             {

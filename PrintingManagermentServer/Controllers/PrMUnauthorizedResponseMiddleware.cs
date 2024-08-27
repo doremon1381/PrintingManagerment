@@ -109,18 +109,18 @@ namespace PrintingManagermentServer.Controllers
                 // Create a custom response object
                 var responseBody = new
                 {
-                    status = 302,
+                    status = 401,
                     state = state,
                     client_state = clientState,
                     message = "redirect uri is inside response header!"
                 };
 
-                //context.Response.StatusCode = 302;
+                context.Response.StatusCode = 401;
                 context.Response.Headers.Append("state", state);
 
                 // TODO: I don't know why if add "Location" as key in response header, the response will be sent in vuejs's web is with status code 200,
                 //     : but if I modify the name, for example, to "Location1", then the response will has status code 302 as I set to it before...
-                context.Response.Headers.Append("IdentityLocation", responseRedirectUri);
+                context.Response.Headers.Append("Location", responseRedirectUri);
                 // Serialize the custom response object to JSON and write it to the response body
                 await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(responseBody));
                 //await context.Response.StartAsync();

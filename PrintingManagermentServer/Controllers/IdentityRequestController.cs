@@ -16,6 +16,8 @@ using Newtonsoft.Json;
 using Azure.Core;
 using Newtonsoft.Json.Linq;
 using PrintingManagermentServer.Models;
+using PrMServerUltilities.Identity;
+using PrintingManagermentServer.Database;
 
 namespace PrintingManagermentServer.Controllers
 {
@@ -134,37 +136,52 @@ namespace PrintingManagermentServer.Controllers
 
 
                 _loginSessionManager.SaveDraft(loginDraft);
-                return StatusCode(200, jsonToken.Payload);
 
                 // TODO: get user info and save to db
-                //var user_info = await userinfoCall(accessToken, userInfoEnpoint);
+                var user_info = await userinfoCall(accessToken, userInfoEnpoint);
 
-                //var user = _userTokenServices.Create(new UserToken()
-                //{
-                //    //UserName =
-                //});
+                var user = _userTokenServices.FindByUsername(jsonToken.Payload.Sub);
 
-                //var loginWithToken = new LoginSessionWithToken()
-                //{
-                //    //UserToken = User
-                //};
-                //var tokenResponse = new PrintingManagermentServer.Models.TokenResponse()
-                //{
-                //    AccessToken = accessToken,
-                //    IdToken = id_token,
-                //    RefreshToken = refresh_token,
-                //    AccessTokenExpiried = DateTime.Parse(expired_in)
-                //};
+                if (User == null)
+                {
+                    user = new UserToken()
+                    {
+                        UserName = jsonToken.Payload.Sub,
+                        Email = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Email)).Value,
+                        // TODO: comment for now
+                        //DateOfBirth = DateTime.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.BirthDate)).Value),
+                        IsEmailConfirmed = bool.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.EmailVerified)).Value),
+                        FullName = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Name)).Value,
+                        Avatar = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Picture)).Value
+                    };
+                    _userTokenServices.Create(user);
+                }
 
+
+                var tokenResponse = new PrintingManagermentServer.Models.TokenResponse()
+                {
+                    AccessToken = accessToken,
+                    IdToken = id_token,
+                    RefreshToken = refresh_token,
+                    AccessTokenExpiried = DateTime.Now.AddSeconds(double.Parse(expired_in)),
+                    LoginSessionWithToken = loginDraft
+                };
+
+                loginDraft.UserToken = user;
+                loginDraft.TokenResponse = tokenResponse;
+                // TODO: end login session
+                loginDraft.LoginSession.IsInLoginSession = false;
+                _loginSessionManager.UpdateLoginSession(loginDraft);
+                // TODO: because user-agent will not need it
+                jsonToken.Payload.Remove("exp");
+
+                // TODO: send access token and id token to client, prepare for request have access token in authorization: bearer header
+                return StatusCode(200, jsonToken.Payload);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
             }
-
-            // TODO: send access token and id token to client, prepare for request have access token in authorization: bearer header
-
-            return StatusCode(200);
         }
 
         public T Cast<T>(T obj, object test)
@@ -222,45 +239,37 @@ namespace PrintingManagermentServer.Controllers
             return output;
         }
 
-        /// <summary>
-        /// TODO: callback uses for receiving id_token from identityserver and handle login base on that id_token, nothing more
-        /// </summary>
-        /// <returns></returns>
-        [HttpPost("callback")]
-        public ActionResult CallbackPost()
-        {
-            var request = HttpContext.Request;
+        ///// <summary>
+        ///// TODO: callback uses for receiving id_token from identityserver and handle login base on that id_token, nothing more
+        ///// </summary>
+        ///// <returns></returns>
+        //[HttpPost("callback")]
+        //public ActionResult CallbackPost()
+        //{
+        //    var request = HttpContext.Request;
 
-            var getForm = request.ReadFormAsync().Result;
-            //using (var sr = new StreamReader(Request.InputStream))
-            //{
-            //    string body = sr.ReadToEnd();
+        //    var getForm = request.ReadFormAsync().Result;
+        //    //using (var sr = new StreamReader(Request.InputStream))
+        //    //{
+        //    //    string body = sr.ReadToEnd();
 
-            //    // Deserialize JSON to C# object
-            //    // you can use some modern libs such as Newtonsoft JSON.NET instead as well
-            //    JavaScriptSerializer serializer = new JavaScriptSerializer();
-            //    Hashtable hashtable = serializer.Deserialize<Hashtable>(body);
+        //    //    // Deserialize JSON to C# object
+        //    //    // you can use some modern libs such as Newtonsoft JSON.NET instead as well
+        //    //    JavaScriptSerializer serializer = new JavaScriptSerializer();
+        //    //    Hashtable hashtable = serializer.Deserialize<Hashtable>(body);
 
-            //    string name = hashtable["name"].ToString();
-            //    string image = hashtable["image"].ToString();
-            //    string price = hashtable["price"].ToString();
+        //    //    string name = hashtable["name"].ToString();
+        //    //    string image = hashtable["image"].ToString();
+        //    //    string price = hashtable["price"].ToString();
 
-            //}
+        //    //}
 
-            // TODO: get authorization code, exchange it to server
+        //    // TODO: get authorization code, exchange it to server
 
 
-            //return StatusCode(200, "form_post is sent to client successfull!");
-            return StatusCode(200, "login success!");
-        }
-
-        [HttpPost("authorize")]
-        public async Task<ActionResult> Authorization()
-        {
-            // TODO: get authorization code
-
-            return StatusCode(200);
-        }
+        //    //return StatusCode(200, "form_post is sent to client successfull!");
+        //    return StatusCode(200, "login success!");
+        //}
 
         [HttpGet("register")]
         [Authorize]
@@ -280,7 +289,7 @@ namespace PrintingManagermentServer.Controllers
             if (string.IsNullOrEmpty(redirectUri))
                 return StatusCode(500, "redirect_uri is missing!");
 
-            string responseUri = string.Format("{0}?response_type=code&client_id={1}&redirect_uri={2}&scope=openid%20profile%20email&prompt=create", registerUri, clientId, System.Uri.EscapeDataString(redirectUri));
+            string responseUri = string.Format("{0}", registerUri);
 
             return StatusCode(200, responseUri);
         }

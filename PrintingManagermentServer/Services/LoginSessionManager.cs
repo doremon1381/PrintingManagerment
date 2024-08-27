@@ -37,11 +37,17 @@ namespace PrintingManagermentServer.Services
 
             return session;
         }
+
+        public bool UpdateLoginSession(LoginSessionWithToken session)
+        {
+            return _sessionWithTokenServices.Update(session);
+        }
     }
 
     public interface ILoginSessionManager
     {
         LoginSessionWithToken GetDraftFromState(string clientState);
         LoginSessionWithToken SaveDraft(LoginSessionWithToken session);
+        bool UpdateLoginSession(LoginSessionWithToken session);
     }
 }
