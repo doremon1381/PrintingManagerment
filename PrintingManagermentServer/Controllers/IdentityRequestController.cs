@@ -18,6 +18,12 @@ using Newtonsoft.Json.Linq;
 using PrintingManagermentServer.Models;
 using PrMServerUltilities.Identity;
 using PrintingManagermentServer.Database;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Security;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography.X509Certificates;
 
 namespace PrintingManagermentServer.Controllers
 {
@@ -32,12 +38,15 @@ namespace PrintingManagermentServer.Controllers
         private readonly IConfigurationManager _configuration;
         private readonly ILoginSessionManager _loginSessionManager;
         private readonly IUserTokenDbServices _userTokenServices;
+        private readonly IRoleDbServices _roleDbServices;
 
-        public IdentityRequestController(IConfigurationManager configuration, ILoginSessionManager loginSessionManager, IUserTokenDbServices userTokenDbServices)
+        public IdentityRequestController(IConfigurationManager configuration, ILoginSessionManager loginSessionManager, IUserTokenDbServices userTokenDbServices
+            , IRoleDbServices roleDbServices)
         {
             _configuration = configuration;
             _loginSessionManager = loginSessionManager;
             _userTokenServices = userTokenDbServices;
+            _roleDbServices = roleDbServices;
         }
 
         [HttpGet("callback")]
@@ -73,7 +82,7 @@ namespace PrintingManagermentServer.Controllers
                 // TODO: send to identityserver to get id token and access token
                 HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(tokenEndpoint);
                 tokenRequest.Method = "POST";
-                tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+                tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*;q=0.8";
                 byte[] _byteVersion = Encoding.ASCII.GetBytes(tokenEndpointBody);
                 tokenRequest.ContentLength = _byteVersion.Length;
                 Stream stream = tokenRequest.GetRequestStream();
@@ -101,7 +110,7 @@ namespace PrintingManagermentServer.Controllers
                 string refresh_token = sr.refresh_token;
                 string expired_in = sr.expires_in;
 
-                loginDraft.TokenResponse = new Models.TokenResponse()
+                loginDraft.IncomingToklen = new Models.IncomingToken()
                 {
                     AccessToken = accessToken,
                     IdToken = id_token,
@@ -134,16 +143,21 @@ namespace PrintingManagermentServer.Controllers
                 }
                 jsonToken.Payload.Remove("nonce");
 
-
+                if (!VerifySignature(id_token))
+                    return StatusCode(500, "identity token has problem!");
+                // TODO: use hs256 for now
+                //VerifyRsa256Signature(id_token, _configuration.GetSection("Jwt_access_token:Public_key").Value.Replace("\n",""));
                 _loginSessionManager.SaveDraft(loginDraft);
 
                 // TODO: get user info and save to db
                 var user_info = await userinfoCall(accessToken, userInfoEnpoint);
 
-                var user = _userTokenServices.FindByUsername(jsonToken.Payload.Sub);
+                var user = _userTokenServices.FindByUsernameWithPermission(jsonToken.Payload.Sub);
 
-                if (User == null)
+                if (user == null)
                 {
+                    var roles = _roleDbServices.GetAll();
+
                     user = new UserToken()
                     {
                         UserName = jsonToken.Payload.Sub,
@@ -152,13 +166,16 @@ namespace PrintingManagermentServer.Controllers
                         //DateOfBirth = DateTime.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.BirthDate)).Value),
                         IsEmailConfirmed = bool.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.EmailVerified)).Value),
                         FullName = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Name)).Value,
-                        Avatar = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Picture)).Value
+                        Avatar = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Picture)).Value,
+                        Permissions = new List<Permission> { new Permission() {
+                            Role = roles.FirstOrDefault(r => r.RoleName.Equals("admin")),
+                            User = user
+                        } }
                     };
                     _userTokenServices.Create(user);
                 }
 
-
-                var tokenResponse = new PrintingManagermentServer.Models.TokenResponse()
+                var incomingToken = new PrintingManagermentServer.Models.IncomingToken()
                 {
                     AccessToken = accessToken,
                     IdToken = id_token,
@@ -168,15 +185,25 @@ namespace PrintingManagermentServer.Controllers
                 };
 
                 loginDraft.UserToken = user;
-                loginDraft.TokenResponse = tokenResponse;
+                loginDraft.IncomingToklen = incomingToken;
                 // TODO: end login session
                 loginDraft.LoginSession.IsInLoginSession = false;
-                _loginSessionManager.UpdateLoginSession(loginDraft);
-                // TODO: because user-agent will not need it
-                jsonToken.Payload.Remove("exp");
+                //// TODO: because user-agent will not need it
+                //jsonToken.Payload.Remove("exp");
+
+                // TODO: token response will be add
+
+                var accessTokenResponse = GenerateJwtAcessToken(user);
+                var tokenResponse = new Models.TokenResponse()
+                {
+                    AccessToken = accessTokenResponse,
+                    AccessTokenExpiried = DateTime.Now.AddHours(1),
+                    LoginSessionWithToken = loginDraft
+                };
+                _loginSessionManager.AddLoginSessionTokenResponse(loginDraft, tokenResponse);
 
                 // TODO: send access token and id token to client, prepare for request have access token in authorization: bearer header
-                return StatusCode(200, jsonToken.Payload);
+                return StatusCode(200, accessTokenResponse);
             }
             catch (Exception ex)
             {
@@ -224,7 +251,7 @@ namespace PrintingManagermentServer.Controllers
             userinfoRequest.Method = "GET";
             userinfoRequest.Headers.Add(string.Format("Authorization: Bearer {0}", access_token));
             userinfoRequest.ContentType = "application/x-www-form-urlencoded";
-            userinfoRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+            userinfoRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*;q=0.8";
 
             // gets the response
             WebResponse userinfoResponse = await userinfoRequest.GetResponseAsync();
@@ -271,28 +298,28 @@ namespace PrintingManagermentServer.Controllers
         //    return StatusCode(200, "login success!");
         //}
 
-        [HttpGet("register")]
-        [Authorize]
-        public async Task<ActionResult> Register()
-        {
-            var identityConfig = _configuration.GetSection("IdentityServer");
-            var registerUri = identityConfig.GetSection("auth_uri").Value;
-            if (string.IsNullOrEmpty(registerUri))
-                return StatusCode(500, "server's config does not have register uri!");
-            var clientId = identityConfig.GetSection("client_id").Value;
-            if (string.IsNullOrEmpty(clientId))
-                return StatusCode(500, "server's config does not have client_id!");
-            //var clientSecret = identityConfig.GetSection("client_secret").Value;
-            //if (string.IsNullOrEmpty(clientSecret))
-            //    return StatusCode(500, "server's config does not have client_secret!");
-            var redirectUri = identityConfig.GetSection("redirect_uris").Get<string[]>().First();
-            if (string.IsNullOrEmpty(redirectUri))
-                return StatusCode(500, "redirect_uri is missing!");
+        //[HttpGet("register")]
+        //[Authorize]
+        //public async Task<ActionResult> Register()
+        //{
+        //    var identityConfig = _configuration.GetSection("IdentityServer");
+        //    var registerUri = identityConfig.GetSection("auth_uri").Value;
+        //    if (string.IsNullOrEmpty(registerUri))
+        //        return StatusCode(500, "server's config does not have register uri!");
+        //    var clientId = identityConfig.GetSection("client_id").Value;
+        //    if (string.IsNullOrEmpty(clientId))
+        //        return StatusCode(500, "server's config does not have client_id!");
+        //    //var clientSecret = identityConfig.GetSection("client_secret").Value;
+        //    //if (string.IsNullOrEmpty(clientSecret))
+        //    //    return StatusCode(500, "server's config does not have client_secret!");
+        //    var redirectUri = identityConfig.GetSection("redirect_uris").Get<string[]>().First();
+        //    if (string.IsNullOrEmpty(redirectUri))
+        //        return StatusCode(500, "redirect_uri is missing!");
 
-            string responseUri = string.Format("{0}", registerUri);
+        //    string responseUri = string.Format("{0}", registerUri);
 
-            return StatusCode(200, responseUri);
-        }
+        //    return StatusCode(200, responseUri);
+        //}
 
         /// <summary>
         /// TODO: validate at_hash from id_token is OPTIONAL in some flow,
@@ -326,11 +353,76 @@ namespace PrintingManagermentServer.Controllers
             }
         }
 
-        private void GenerateJwtAcessToken(UserToken user, string nonce)
+        public bool VerifySignature(string jwt)
         {
+            string[] parts = jwt.Split(".".ToCharArray());
+            var header = parts[0];
+            var payload = parts[1];
+            var signature = parts[2];//Base64UrlEncoded signature from the token
+
+            byte[] bytesToSign = Encoding.UTF8.GetBytes(string.Join(".", header, payload));
+
+            // TODO: will change how to get this part later
+            byte[] secret = Encoding.UTF8.GetBytes(_configuration.GetSection("Jwt:Key").Value);
+
+            var alg = new HMACSHA256(secret);
+            var hash = alg.ComputeHash(bytesToSign);
+
+            var computedSignature = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(hash);
+
+            return signature.Equals(computedSignature);
+        }
+
+        /// <summary>
+        /// TODO: will learn how to use in future
+        /// </summary>
+        /// <param name="idToken"></param>
+        /// <param name="publicKey"></param>
+        /// <returns></returns>
+        public bool VerifyRsa256Signature(string idToken, string publicKey)
+        {
+            string[] parts = idToken.Split('.');
+            string header = parts[0];
+            string payload = parts[1];
+            byte[] crypto = RNGCryptoServicesUltilities.Base64UrlDecode(parts[2]);
+
+            var keyBytes = Convert.FromBase64String(publicKey);
+
+            //var rsaKey = Org.BouncyCastle.Asn1.X509.RsaPublicKeyStructure.GetInstance(publicKey);
+
+            //var pubkeyParams = new RsaKeyParameters(false, rsaKey.Modulus, rsaKey.PublicExponent);
+
+            var rsaKey = Org.BouncyCastle.Asn1.X509.RsaPublicKeyStructure.GetInstance(publicKey);
+
+            var pubkeyParams = new RsaKeyParameters(false, rsaKey.Modulus, rsaKey.PublicExponent);
+
+            //AsymmetricKeyParameter asymmetricKeyParameter = PublicKeyFactory.CreateKey(keyBytes);
+            //AsymmetricKeyParameter asymmetricKeyParameter = (AsymmetricCipherKeyPair)new PemReader(reader).ReadObject();
+            //RsaKeyParameters rsaKeyParameters = (RsaKeyParameters)asymmetricKeyParameter;
+            RSAParameters rsaParameters = new RSAParameters();
+            rsaParameters.Modulus = pubkeyParams.Modulus.ToByteArrayUnsigned();
+            rsaParameters.Exponent = pubkeyParams.Exponent.ToByteArrayUnsigned();
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider();
+            rsa.ImportParameters(rsaParameters);
+
+            SHA256 sha256 = SHA256.Create();
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(parts[0] + '.' + parts[1]));
+
+            RSAPKCS1SignatureDeformatter rsaDeformatter = new RSAPKCS1SignatureDeformatter(rsa);
+            rsaDeformatter.SetHashAlgorithm("SHA256");
+
+            return rsaDeformatter.VerifySignature(hash, Convert.FromBase64String(parts[2]));
+        }
+
+        private string GenerateJwtAcessToken(UserToken user, string nonce="")
+        {
+            // TODO: use audience from json setting for now
+            //string audience = _configuration["Jwt_access_token:Audience"];
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt_access_token:Key"]));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
+            string expired_in = _configuration.GetSection("Jwt_access_token:ExpirationSeconds").Value;
+            string clientId = _configuration.GetSection("IdentityServer:client_id").Value;
             // TODO: jwt access token's form
             //   Header:
             //       { "typ":"at+JWT","alg":"RS256","kid":"RjEwOwOA"}
@@ -348,26 +440,32 @@ namespace PrintingManagermentServer.Controllers
             // TODO: by default flow, in this step, I already register a client as claimsPrincipal of identityserver, so
 
             var claims = new List<Claim>();
-            claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+            claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
+            // TODO get it from context.request
+            //claims.Add(new Claim(JwtClaimTypes.Issuer, this.HttpContext.Request.Host.ToString()));
+            //claims.Add(new Claim(JwtClaimTypes.Audience, audience));
+            claims.Add(new Claim(JwtClaimTypes.IssuedAt, DateTime.Now.ToString()));
+            claims.Add(new Claim(JwtClaimTypes.Expiration, DateTime.Now.AddSeconds(double.Parse(expired_in)).ToString()));
+            claims.Add(new Claim(JwtClaimTypes.ClientId, clientId));
+            claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
 
+            user.Permissions.ToList().ForEach(p =>
+            {
+                claims.Add(new Claim(JwtClaimTypes.Scope, p.Role.RoleName));
+            });
 
             if (!string.IsNullOrEmpty(nonce))
-                claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
-
-            //user.PrMPermissions.ForEach(p =>
-            //{
-            //    claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleName));
-            //});
+                claims.Add(new Claim(JwtClaimTypes.Nonce, nonce));
 
             // TODO: audience will need to compare with request's header 
             var token = new JwtSecurityToken(_configuration["Jwt:Issuer"],
                 _configuration["Jwt:Audience"],
                 claims,
-                expires: DateTime.Now.AddHours(8),
+                expires: DateTime.Now.AddHours(1),
                 signingCredentials: credentials);
 
 
-            // return new JwtSecurityTokenHandler().WriteToken(token);
+             return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

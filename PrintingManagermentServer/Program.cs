@@ -33,6 +33,7 @@ namespace PrintingManagermentServer
             builder.Services.AddScoped<ILoginSessionWithTokenDbServices, LoginSessionWithTokenDbServices>();
             builder.Services.AddScoped<ILoginSessionManager, LoginSessionManager>();
             builder.Services.AddScoped<IUserTokenDbServices, UserTokenDbServices>();
+            builder.Services.AddScoped<IRoleDbServices, RoleDbServices>();
             builder.Services.AddSingleton(builder.Configuration.GetSection("IdentityServer").Get<ClientSettings>());
 
             //builder.Services.AddCors(options =>
@@ -45,10 +46,13 @@ namespace PrintingManagermentServer
             //        });
             //});
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddScheme<JwtBearerOptions, CustomAuthenticationHandler>(JwtBearerDefaults.AuthenticationScheme,options => 
+                .AddScheme<JwtBearerOptions, PrMAuthenticationHandler>(JwtBearerDefaults.AuthenticationScheme,options => 
                 {
                     builder.Configuration.Bind("Jwt", options);
                 });
+            builder.Services.AddIdentityCore<UserToken>()
+                .AddEntityFrameworkStores<PrintingManagermentDbContext>()
+                .AddDefaultTokenProviders();
             builder.Services.AddMvc(mvcOptions =>
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());

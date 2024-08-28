@@ -18,6 +18,7 @@ namespace PrintingManagermentServer.Database
         public DbSet<Role> Roles { get; set; }
         public DbSet<LoginSessionWithToken> LoginSessionWithTokens { get; set; }
         public DbSet<TokenResponse> TokenResponses { get; set; }
+        public DbSet<IncomingToken> IncomingTokens { get; set; }
 
         public PrintingManagermentDbContext(DbContextOptions<PrintingManagermentDbContext> options, ILogger<PrintingManagermentDbContext> logger)
             : base(options)

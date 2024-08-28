@@ -8,9 +8,9 @@ using System.Text.Encodings.Web;
 
 namespace PrintingManagermentServer.Services
 {
-    public class CustomAuthenticationHandler : AuthenticationHandler<JwtBearerOptions>
+    public class PrMAuthenticationHandler : AuthenticationHandler<JwtBearerOptions>
     {
-        public CustomAuthenticationHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder) : base(options, logger, encoder)
+        public PrMAuthenticationHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder) : base(options, logger, encoder)
         {
         }
 
@@ -27,14 +27,6 @@ namespace PrintingManagermentServer.Services
                 var context = Context;
                 var headers = context.Request.Headers;
 
-                //var request = context.Request;
-
-                //if (Context.Request.HasFormContentType)
-                //{
-                //    var getForm = Context.Request.ReadFormAsync().Result;
-                //}
-                //var options = this.Options;
-
                 var endpoint = Context.GetEndpoint();
                 if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
                 {
@@ -42,8 +34,8 @@ namespace PrintingManagermentServer.Services
                 }
 
 
-                var authenticationIdToken = headers.Authorization.ToString();
-                if (!string.IsNullOrEmpty(authenticationIdToken))
+                var idToken = headers.Authorization.ToString();
+                if (!string.IsNullOrEmpty(idToken))
                 {
                     // If the session is valid, return success:
                     var claims = new[] { new Claim(ClaimTypes.Name, "Test") };

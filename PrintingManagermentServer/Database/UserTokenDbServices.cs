@@ -17,10 +17,19 @@ namespace PrintingManagermentServer.Database
             var obj = _userTokenDbServices.FirstOrDefault(u => u.UserName.Equals(userName));
             return obj;
         }
+
+        public UserToken FindByUsernameWithPermission(string userName)
+        {
+            var obj = _userTokenDbServices.Include(c => c.Permissions).ThenInclude(p => p.Role)
+                 //.Include(c => c.LoginSessionWithTokens).ThenInclude(l => l.)
+                 .FirstOrDefault(u => u.UserName.Equals(userName));
+            return obj;
+        }
     }
 
     public interface IUserTokenDbServices : IDbContextBase<UserToken>
     {
         UserToken FindByUsername(string userName);
+        UserToken FindByUsernameWithPermission(string userName);
     }
 }

@@ -13,6 +13,7 @@ namespace PrintingManagermentServer.Models
 
         public LoginSession LoginSession {get;set;}
         public TokenResponse TokenResponse { get; set; }
+        public IncomingToken IncomingToklen { get; set; }
 
     }
 }

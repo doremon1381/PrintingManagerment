@@ -81,5 +81,28 @@ namespace PrMServerUltilities
 
             return base64;
         }
+
+        /// <summary>
+        /// https://codingstill.com/2016/01/verify-jwt-token-signed-with-rs256-using-the-public-key/
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        public static byte[] Base64UrlDecode(string input)
+        {
+            var output = input;
+            output = output.Replace('-', '+'); // 62nd char of encoding
+            output = output.Replace('_', '/'); // 63rd char of encoding
+            switch (output.Length % 4) // Pad with trailing '='s
+            {
+                case 0: break; // No pad chars in this case
+                case 1: output += "==="; break; // Three pad chars
+                case 2: output += "=="; break; // Two pad chars
+                case 3: output += "="; break; // One pad char
+                default: throw new System.Exception("Illegal base64url string!");
+            }
+            var converted = Convert.FromBase64String(output); // Standard base64 decoder
+            return converted;
+        }
     }
 }

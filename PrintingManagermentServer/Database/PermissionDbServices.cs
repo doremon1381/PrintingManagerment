@@ -14,7 +14,8 @@ namespace PrintingManagermentServer.Database
 
         public bool AddRole(Role role)
         {
-            _Permissions.
+            //_Permissions.
+            throw new NotImplementedException();
         }
     }
 
