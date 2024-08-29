@@ -24,6 +24,7 @@ using static PrMServerUltilities.Identity.OidcConstants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using System;
+using IssuerOfClaims.Database.Model;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -406,44 +407,40 @@ namespace IssuerOfClaims.Controllers
 
             //var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
 
-            //requestQuerry.GetFromQueryString(TokenRequest.GrantType, out string grantType);
-            //if (string.IsNullOrEmpty(grantType))
-            //    return StatusCode(400, "grant type is missing!");
-
-            //requestQuerry.GetFromQueryString(GrantTypes.RefreshToken, out string refreshToken);
-            //if (string.IsNullOrEmpty(refreshToken))
-            //    return StatusCode(400, "refreshToken is missing!");
-
-            string[] requestBody = new string[] { };
+            Dictionary<string, string> requestBody = new Dictionary<string, string>();
 
             using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
             {
                 var temp = await reader.ReadToEndAsync();
-                requestBody = temp.Split('&');
+                temp.Split('&').ToList().ForEach(t =>
+                {
+                    var r = t.Split("=");
+                    requestBody.Add(r[0], r[1]);
+                });
             }
 
-            if (requestBody.Length == 0)
+            if (requestBody.Count == 0)
                 return StatusCode(400, "body is missing!");
 
             //string refreshToken = requestBody.FirstOrDefault(c => c.StartsWith(GrantTypes.RefreshToken)).Split("=")[1];
-            string grantType = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.GrantType)).Split("=")[1];
+            string grantType = requestBody[TokenRequest.GrantType];
 
             switch (grantType)
             {
-                case GrantTypes.RefreshToken:
+                case OidcConstants.GrantTypes.RefreshToken:
                     {
                         var loginSessionWithToken = _loginSessionManager.FindByRefreshToken(grantType);
 
                         return StatusCode(500, "not implement exception!");
                     }
-                case GrantTypes.AuthorizationCode:
+                case OidcConstants.GrantTypes.AuthorizationCode:
                     return await GetAccessTokenFromAuthorizationCode(requestBody);
                 default:
                     return StatusCode(500, "Unknown error!");
             }
         }
 
-        private async Task<ActionResult> GetAccessTokenFromAuthorizationCode(string[] requestBody)
+        private async Task<ActionResult> GetAccessTokenFromAuthorizationCode(Dictionary<string, string> requestBody)
         {
             // TODO: get from queryString, authorization code
             //     : get user along with authorization code inside latest login session (of that user)
@@ -451,15 +448,7 @@ namespace IssuerOfClaims.Controllers
 
             var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
 
-            // TODO: why code is not included in request's header,
-            //     : because I like it to be include in query's string!
-            //if (!HttpContext.Request.QueryString.HasValue)
-            //    return StatusCode(400, "Request must containt query string for authorization!");
-
-            //var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
-            //var content = HttpContext.Request.BodyReader.ReadAsync().Result;
-
-            string authorizationCode = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.Code)).Split("=")[1];
+            string authorizationCode = requestBody[TokenRequest.Code];
             if (string.IsNullOrEmpty(authorizationCode))
                 return StatusCode(400, "authorization code is missing!");
 
@@ -478,8 +467,8 @@ namespace IssuerOfClaims.Controllers
                 // TODO: status code may wrong
                 return StatusCode(500, "login session is end!");
 
-            string clientId = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.ClientId)).Split("=")[1];
-            string clientSecret = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.ClientSecret)).Split("=")[1];
+            string clientId = requestBody[TokenRequest.ClientId];
+            string clientSecret = requestBody[TokenRequest.ClientSecret];
             if (string.IsNullOrEmpty(clientId)
                 || string.IsNullOrEmpty(clientSecret))
                 return StatusCode(400, "client credentials's info is missing!");
@@ -493,14 +482,14 @@ namespace IssuerOfClaims.Controllers
             //If the redirect_uri parameter value is not present when there is only one registered redirect_uri value,
             //the Authorization Server MAY return an error(since the Client should have included the parameter) or MAY proceed without an error(since OAuth 2.0 permits the parameter to be omitted in this case).
             string[] redirectUris = client.RedirectUris.Split(",");
-            var redirectUri = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.RedirectUri)).Split("=")[1];
+            var redirectUri = requestBody[TokenRequest.RedirectUri];
             if (!redirectUris.Contains(redirectUri))
                 return StatusCode(400, "redirect_uri is mismatch!");
 
             // TODO: by default, those two go along together, it may wrong in future coding
             if (loginSession.LoginSession.CodeChallenge != null && loginSession.LoginSession.CodeChallengeMethod != null)
             {
-                var codeVerifier = requestBody.FirstOrDefault(c => c.StartsWith(TokenRequest.CodeVerifier)).Split("=")[1];
+                var codeVerifier = requestBody[TokenRequest.CodeVerifier];
                 if (string.IsNullOrEmpty(codeVerifier))
                     return StatusCode(400, "code challenge is included in authorization code request but does not have in access token request!");
 
