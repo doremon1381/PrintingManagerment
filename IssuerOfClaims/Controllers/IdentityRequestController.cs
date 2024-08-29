@@ -22,8 +22,8 @@ using System.Text.Encodings.Web;
 using System.Web;
 using static PrMServerUltilities.Identity.OidcConstants;
 using Microsoft.AspNetCore.Authorization;
-using Azure.Core;
-using Google.Apis.Auth.OAuth2.Responses;
+using Microsoft.AspNetCore.Cors;
+using System;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -31,6 +31,7 @@ namespace IssuerOfClaims.Controllers
     [Route("[controller]")]
     //[ApiVersion("1.0")]
     [ControllerName("oauth2")]
+    //[EnableCors("MyPolicy")]
     // TODO: https://openid.net/specs/openid-connect-core-1_0.html
     //     : try to implement from this specs
     //     : for now, I dont intend to add https://datatracker.ietf.org/doc/html/rfc8414 (response for a request for "/.well-known/oauth-authorization-server"), I will think about it late
@@ -240,7 +241,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: I don't know why if add "Location" as key in response header, the response will be sent in vuejs's web is with status code 200,
             //     : but if I modify the name, for example, to "Location1", then the response will has status code 302 as I set to it before...
-            HttpContext.Response.Headers.Append("Location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
+            HttpContext.Response.Headers.Append("location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
             // Serialize the custom response object to JSON and write it to the response body
             await HttpContext.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(responseBody));
 
@@ -626,6 +627,22 @@ namespace IssuerOfClaims.Controllers
 
                                 responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
                             }
+                            else if (latestLoginSession.TokenResponse.AccessTokenExpiried > DateTime.Now
+                                && latestLoginSession.TokenResponse.RefreshTokenExpiried < DateTime.Now)
+                            {
+                                // TODO
+                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
+                                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                                tokenResponse.AccessToken = access_token;
+                                tokenResponse.IdToken = id_token;
+                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                                tokenResponse.RefreshToken = refresh_token;
+                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                                responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
+                            }
                         }
                     }
                     else if (!isOfflineAccess)
@@ -827,6 +844,8 @@ namespace IssuerOfClaims.Controllers
                     return StatusCode(404, "Confirm code is not match!");
                 if (!(user.ConfirmEmail.ExpiryTime > DateTime.Now))
                     return StatusCode(400, "Confirm code is expired!");
+                if (user.ConfirmEmail.IsConfirmed == true)
+                    return StatusCode(200, "Email is confirmed!");
                 else
                 {
                     user.IsEmailConfirmed = true;
@@ -1041,6 +1060,8 @@ namespace IssuerOfClaims.Controllers
 
                 var userCredentials = headers["Register"][0];
                 string email = headers["Email"];
+                string name = HttpUtility.UrlDecode(headers["Name"]);
+                string fullName = HttpUtility.UrlDecode(headers["FullName"]);
                 //var roles = headers["Roles"].ToString().Split(",");
                 var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
 
@@ -1068,10 +1089,18 @@ namespace IssuerOfClaims.Controllers
 
                 //_userManager.p
                 // TODO
-                var result = await _userManager.CreateAsync(user, password);
+                var result = _userManager.CreateAsync(user, password).Result;
                 //var result = _userDbServices.Create(user);
                 if (result.Succeeded)
                 {
+                    if (!string.IsNullOrEmpty(name))
+                        user.Name = name;
+                    if (!string.IsNullOrEmpty(fullName))
+                        user.FullName = fullName;
+                    else 
+                        user.FullName = user.Name;
+
+                    var sr = _userManager.UpdateAsync(user).Result;
 
                     //    $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
                     if (!string.IsNullOrEmpty(user.Email))
@@ -1209,62 +1238,79 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         private string GenerateIdToken(PrMUser user, string scopeStr, string nonce, PrMClient client)
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            try
+            {
+                // TODO: use rsa256 instead of hs256 for now
+                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+                var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+                //var rsa = RSA.Create(2048);
+                //var keygen = new SshKeyGenerator.SshKeyGenerator(2048);
+                //var privateKey = keygen.ToPrivateKey();
+                //Console.WriteLine(privateKey);
 
-            var scopes = scopeStr.Split(" ");
+                //var publicSshKey = keygen.ToRfcPublicKey();
+                //Console.WriteLine(publicSshKey);
 
-            var claims = new List<Claim>();
+                //rsa.ImportRSAPrivateKey(Convert.FromBase64String(_configuration["Jwt:Key"]), out _);
+                //RsaSecurityKey key = new RsaSecurityKey(rsa);
+                //var credentials = new SigningCredentials(key, SecurityAlgorithms.RsaSha256);
+                //var publicKey = Convert.ToBase64String(rsa.ExportRSAPublicKey());
+                var scopes = scopeStr.Split(" ");
 
-            if (scopes.Contains(IdentityServerConstants.StandardScopes.OpenId))
-            {
-                claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
-                claims.Add(new Claim(JwtClaimTypes.Audience, client.ClientId));
-                // TODO: hard code for now
-                claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
-            }
-            if (scopes.Contains(IdentityServerConstants.StandardScopes.Profile))
-            {
-                // TODO: will add more
-                claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
-                //claims.Add(new Claim("username", user.UserName));
-                claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
-                claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
-                claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
-                claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
-                //claims.Add(new Claim(JwtClaimTypes.Locale, user.lo))
-            }
-            if (scopes.Contains(IdentityServerConstants.StandardScopes.Email))
-            {
-                claims.Add(new Claim(JwtClaimTypes.Email, user.Email));
-                claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()));
-            }
-            if (scopes.Contains(IdentityServerConstants.StandardScopes.Phone))
-            {
-                claims.Add(new Claim(JwtClaimTypes.PhoneNumber, user.PhoneNumber));
-            }
-            // TOOD: will add later
-            if (scopes.Contains(Constants.CustomScope.Role))
-            {
-                user.PrMIdentityUserRoles.ToList().ForEach(p =>
+                var claims = new List<Claim>();
+
+                if (scopes.Contains(IdentityServerConstants.StandardScopes.OpenId))
                 {
-                    claims.Add(new Claim(JwtClaimTypes.Role, p.Role.RoleName));
-                });
+                    claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
+                    claims.Add(new Claim(JwtClaimTypes.Audience, client.ClientId));
+                    // TODO: hard code for now
+                    claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
+                }
+                if (scopes.Contains(IdentityServerConstants.StandardScopes.Profile))
+                {
+                    // TODO: will add more
+                    claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
+                    //claims.Add(new Claim("username", user.UserName));
+                    claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
+                    claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
+                    claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
+                    claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
+                    //claims.Add(new Claim(JwtClaimTypes.Locale, user.lo))
+                }
+                if (scopes.Contains(IdentityServerConstants.StandardScopes.Email))
+                {
+                    claims.Add(new Claim(JwtClaimTypes.Email, user.Email));
+                    claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()));
+                }
+                if (scopes.Contains(IdentityServerConstants.StandardScopes.Phone))
+                {
+                    claims.Add(new Claim(JwtClaimTypes.PhoneNumber, user.PhoneNumber));
+                }
+                // TOOD: will add later
+                if (scopes.Contains(Constants.CustomScope.Role))
+                {
+                    user.PrMIdentityUserRoles.ToList().ForEach(p =>
+                    {
+                        claims.Add(new Claim(JwtClaimTypes.Role, p.Role.RoleName));
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(nonce))
+                    claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
+
+
+                var token = new JwtSecurityToken(_configuration["Jwt:Issuer"],
+                    _configuration["Jwt:Audience"],
+                    claims,
+                    expires: DateTime.Now.AddMinutes(15),
+                    signingCredentials: credentials);
+
+                return new JwtSecurityTokenHandler().WriteToken(token);
             }
-
-            if (!string.IsNullOrEmpty(nonce))
-                claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
-
-
-            var token = new JwtSecurityToken(_configuration["Jwt:Issuer"],
-                _configuration["Jwt:Audience"],
-                claims,
-                expires: DateTime.Now.AddMinutes(15),
-                signingCredentials: credentials);
-
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
 
         private T Cast<T>(object obj, T model)

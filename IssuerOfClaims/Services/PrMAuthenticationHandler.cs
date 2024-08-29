@@ -206,7 +206,7 @@ namespace IssuerOfClaims.Services
                 claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleCode));
             });
 
-            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC) });
+            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, user.UserName, ClaimTypes.Role) });
 
             //_UserClaims.Add(user, principal);
             return principal;
