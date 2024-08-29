@@ -25,11 +25,19 @@ namespace PrintingManagermentServer.Database
                  .FirstOrDefault(u => u.UserName.Equals(userName));
             return obj;
         }
+
+        public List<UserToken> GetAllWithInclude()
+        {
+            var users = _userTokenDbServices.Include(u => u.Permissions).ThenInclude(p => p.Role).ToList();
+
+            return users;
+        }
     }
 
     public interface IUserTokenDbServices : IDbContextBase<UserToken>
     {
         UserToken FindByUsername(string userName);
         UserToken FindByUsernameWithPermission(string userName);
+        List<UserToken> GetAllWithInclude();
     }
 }

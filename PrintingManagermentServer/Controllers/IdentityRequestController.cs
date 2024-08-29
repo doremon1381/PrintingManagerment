@@ -143,7 +143,7 @@ namespace PrintingManagermentServer.Controllers
                 }
                 jsonToken.Payload.Remove("nonce");
 
-                if (!VerifySignature(id_token))
+                if (!TokenExtensions.VerifySignature(id_token, _configuration.GetSection("Jwt:Key").Value))
                     return StatusCode(500, "identity token has problem!");
                 // TODO: use hs256 for now
                 //VerifyRsa256Signature(id_token, _configuration.GetSection("Jwt_access_token:Public_key").Value.Replace("\n",""));
@@ -168,7 +168,7 @@ namespace PrintingManagermentServer.Controllers
                         FullName = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Name)).Value,
                         Avatar = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Picture)).Value,
                         Permissions = new List<Permission> { new Permission() {
-                            Role = roles.FirstOrDefault(r => r.RoleName.Equals("admin")),
+                            Role = roles.FirstOrDefault(r => r.RoleName.Equals("employee")),
                             User = user
                         } }
                     };
@@ -353,66 +353,6 @@ namespace PrintingManagermentServer.Controllers
             }
         }
 
-        public bool VerifySignature(string jwt)
-        {
-            string[] parts = jwt.Split(".".ToCharArray());
-            var header = parts[0];
-            var payload = parts[1];
-            var signature = parts[2];//Base64UrlEncoded signature from the token
-
-            byte[] bytesToSign = Encoding.UTF8.GetBytes(string.Join(".", header, payload));
-
-            // TODO: will change how to get this part later
-            byte[] secret = Encoding.UTF8.GetBytes(_configuration.GetSection("Jwt:Key").Value);
-
-            var alg = new HMACSHA256(secret);
-            var hash = alg.ComputeHash(bytesToSign);
-
-            var computedSignature = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(hash);
-
-            return signature.Equals(computedSignature);
-        }
-
-        /// <summary>
-        /// TODO: will learn how to use in future
-        /// </summary>
-        /// <param name="idToken"></param>
-        /// <param name="publicKey"></param>
-        /// <returns></returns>
-        public bool VerifyRsa256Signature(string idToken, string publicKey)
-        {
-            string[] parts = idToken.Split('.');
-            string header = parts[0];
-            string payload = parts[1];
-            byte[] crypto = RNGCryptoServicesUltilities.Base64UrlDecode(parts[2]);
-
-            var keyBytes = Convert.FromBase64String(publicKey);
-
-            //var rsaKey = Org.BouncyCastle.Asn1.X509.RsaPublicKeyStructure.GetInstance(publicKey);
-
-            //var pubkeyParams = new RsaKeyParameters(false, rsaKey.Modulus, rsaKey.PublicExponent);
-
-            var rsaKey = Org.BouncyCastle.Asn1.X509.RsaPublicKeyStructure.GetInstance(publicKey);
-
-            var pubkeyParams = new RsaKeyParameters(false, rsaKey.Modulus, rsaKey.PublicExponent);
-
-            //AsymmetricKeyParameter asymmetricKeyParameter = PublicKeyFactory.CreateKey(keyBytes);
-            //AsymmetricKeyParameter asymmetricKeyParameter = (AsymmetricCipherKeyPair)new PemReader(reader).ReadObject();
-            //RsaKeyParameters rsaKeyParameters = (RsaKeyParameters)asymmetricKeyParameter;
-            RSAParameters rsaParameters = new RSAParameters();
-            rsaParameters.Modulus = pubkeyParams.Modulus.ToByteArrayUnsigned();
-            rsaParameters.Exponent = pubkeyParams.Exponent.ToByteArrayUnsigned();
-            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider();
-            rsa.ImportParameters(rsaParameters);
-
-            SHA256 sha256 = SHA256.Create();
-            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(parts[0] + '.' + parts[1]));
-
-            RSAPKCS1SignatureDeformatter rsaDeformatter = new RSAPKCS1SignatureDeformatter(rsa);
-            rsaDeformatter.SetHashAlgorithm("SHA256");
-
-            return rsaDeformatter.VerifySignature(hash, Convert.FromBase64String(parts[2]));
-        }
 
         private string GenerateJwtAcessToken(UserToken user, string nonce="")
         {
@@ -448,6 +388,11 @@ namespace PrintingManagermentServer.Controllers
             claims.Add(new Claim(JwtClaimTypes.Expiration, DateTime.Now.AddSeconds(double.Parse(expired_in)).ToString()));
             claims.Add(new Claim(JwtClaimTypes.ClientId, clientId));
             claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
+
+            // TODO: adding for now, but need to split these information to another request for userinfo
+            claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
+            claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
+            claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
 
             user.Permissions.ToList().ForEach(p =>
             {

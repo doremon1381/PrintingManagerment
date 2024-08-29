@@ -14,8 +14,10 @@ namespace PrMModels
         public override string UserName { get; set; } = string.Empty;
         public override string Email { get; set; } = string.Empty;
         public string? FullName { get; set; } = string.Empty;
+        public string? Gender { get; set; } = string.Empty;
         public override string? PhoneNumber { get; set; } = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;
+        public DateTime? UpdateTime { get; set; } = null;
         public string? Avatar { get; set; } = null;
         public bool IsEmailConfirmed { get; set; } = false;
 

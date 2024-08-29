@@ -53,8 +53,10 @@ namespace PrintingManagermentServer.Controllers
             {
                 // TODO: get access token in jwt form from user-agent
 
-                var handler = new JwtSecurityTokenHandler();
-                var jwtSecurityToken = handler.ReadJwtToken(authorization);
+                if (context.User.Identity.IsAuthenticated)
+                {
+                    await _next(context);
+                }
 
             }
             else
@@ -127,8 +129,9 @@ namespace PrintingManagermentServer.Controllers
                 return;// Short-circuit the pipeline, preventing further middleware execution
             }
 
+            // TODO
             // If the user is authorized, pass the request to the next middleware in the pipeline
-            await _next(context);
+            //await _next(context);
         }
 
         private void AddHeadersToAllowCORS(HttpContext context)
@@ -137,7 +140,7 @@ namespace PrintingManagermentServer.Controllers
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
             context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, state");
             context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-            context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, Location, location");
+            context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, Location, location, Authorization");
         }
 
 

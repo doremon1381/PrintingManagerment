@@ -50,6 +50,11 @@ namespace PrintingManagermentServer
                 {
                     builder.Configuration.Bind("Jwt", options);
                 });
+            builder.Services.AddAuthorization(options =>
+            {
+                options.AddPolicy("Admin", policy => policy.RequireRole("admin"));
+                options.AddPolicy("Employee", policy => policy.RequireRole("employee"));
+            });
             builder.Services.AddIdentityCore<UserToken>()
                 .AddEntityFrameworkStores<PrintingManagermentDbContext>()
                 .AddDefaultTokenProviders();

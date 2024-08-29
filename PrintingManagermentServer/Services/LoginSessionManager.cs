@@ -32,6 +32,13 @@ namespace PrintingManagermentServer.Services
             return obj;
         }
 
+        public LoginSessionWithToken GetLoginSessionByAccessToken(string accessToken)
+        {
+            var obj = _sessionWithTokenServices.GetLoginSessionByAccessToken(accessToken);
+
+            return obj;
+        }
+
         public LoginSessionWithToken SaveDraft(LoginSessionWithToken session)
         {
             var current = _LoginSession.FirstOrDefault(s => s.LoginSession.ClientState.Equals(session.LoginSession.ClientState));
@@ -57,5 +64,6 @@ namespace PrintingManagermentServer.Services
         LoginSessionWithToken SaveDraft(LoginSessionWithToken session);
         bool UpdateLoginSession(LoginSessionWithToken session);
         bool AddLoginSessionTokenResponse(LoginSessionWithToken session, TokenResponse response);
+        LoginSessionWithToken GetLoginSessionByAccessToken(string accessToken);
     }
 }

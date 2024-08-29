@@ -22,6 +22,7 @@ namespace PrMDbModels
         [Required]
 #endif
         public string? FullName { get; set; } = string.Empty;
+        public string? Name { get; set; } = string.Empty;
         public string? Gender { get; set; } = string.Empty;
         //public string? Picture { get; set;} = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;

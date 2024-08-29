@@ -4,6 +4,7 @@
     public static class IdentityServerConfiguration
     {
         public const string AUTHENTICATION_SCHEME_BASIC = "Basic";
+        public const string AUTHENTICATION_SCHEME_BEARER = "Bearer";
         public const string AUTHENTICATION_SCHEME_ANONYMOUS = "anonymous";
         public const string GOOGLE_CLIENT = "GoogleClient";
         public const string WEB_SERVER = "WebServer";
