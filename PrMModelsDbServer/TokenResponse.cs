@@ -11,14 +11,14 @@ namespace PrMDbModels
         public string? IdToken { get; set; } = null;
         public string? RefreshToken { get; set; } = null;
 
-        /// <summary>
-        /// For initiation
-        /// </summary>
-        public bool IsAccessTokenExpired { get; set; } = false;
-        /// <summary>
-        /// For initiation
-        /// </summary>
-        public bool IsRefreshTokenExpired { get; set; } = false;
+        ///// <summary>
+        ///// For initiation
+        ///// </summary>
+        //public bool IsAccessTokenExpired { get; set; } = false;
+        ///// <summary>
+        ///// For initiation
+        ///// </summary>
+        //public bool IsRefreshTokenExpired { get; set; } = false;
 
         /// <summary>
         /// TODO: set by seconds

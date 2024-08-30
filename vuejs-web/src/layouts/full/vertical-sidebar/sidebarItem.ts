@@ -1,14 +1,23 @@
 import {
   CircleIcon,
-  WindmillIcon,
-  TypographyIcon,
-  ShadowIcon,
-  PaletteIcon,
+  // WindmillIcon,
+  // TypographyIcon,
+  // ShadowIcon,
+  // PaletteIcon,
   KeyIcon,
-  BugIcon,
-  DashboardIcon,
-  BrandChromeIcon,
-  HelpIcon
+  // BugIcon,
+  // DashboardIcon,
+  // UserOffIcon,
+  UsersGroupIcon,
+  Home2Icon,
+  PictureInPictureOnIcon,
+  UserPlusIcon,
+  BrandDeliverooIcon,
+  BrandAppstoreIcon,
+  DatabaseExportIcon,
+  BrandOfficeIcon,
+  // BrandChromeIcon,
+  // HelpIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -25,14 +34,51 @@ export interface menu {
   disabled?: boolean;
   type?: string;
   subCaption?: string;
+  forAdmin?: boolean;
 }
 
 const sidebarItem: menu[] = [
-  { header: 'Dashboard' },
+  // { header: 'Dashboard' }, 
   {
     title: 'Default',
-    icon: DashboardIcon,
+    icon: Home2Icon,
     to: '/dashboard/default'
+  },
+  {
+    title: "Thống kê",
+    icon: DatabaseExportIcon,
+    to: "/statistic"
+  },
+  {
+    title: "Quản lý Kho",
+    icon: BrandAppstoreIcon,
+    to: "/storage"
+  },
+  {
+    title: "Quản lý giao hàng",
+    icon: BrandDeliverooIcon,
+    to: "/delivery"
+  },
+  {
+    title: "Quản lý dự án",
+    icon: PictureInPictureOnIcon,
+    to: "/projects"
+  },
+  {
+    title: "Quản lý nhân viên",
+    icon: UsersGroupIcon,
+    to: "/users",
+    forAdmin: true
+  },
+  {
+    title: "Quản lý khách hàng",
+    icon: UserPlusIcon,
+    to: "/customers"
+  },
+  {
+    title: "Quản lý phòng ban",
+    icon: BrandOfficeIcon,
+    to: "/offices"
   },
   { divider: true },
   { header: 'Pages' },
@@ -53,58 +99,58 @@ const sidebarItem: menu[] = [
       }
     ]
   },
-  {
-    title: 'Error 404',
-    icon: BugIcon,
-    to: '/pages/error'
-  },
-  { divider: true },
-  { header: 'Utilities' },
-  {
-    title: 'Typography',
-    icon: TypographyIcon,
-    to: '/utils/typography'
-  },
-  {
-    title: 'Shadows',
-    icon: ShadowIcon,
-    to: '/utils/shadows'
-  },
-  {
-    title: 'Colors',
-    icon: PaletteIcon,
-    to: '/utils/colors'
-  },
+  // {
+  //   title: 'Error 404',
+  //   icon: BugIcon,
+  //   to: '/pages/error'
+  // },
+  // { divider: true },
+  // { header: 'Utilities' },
+  // {
+  //   title: 'Typography',
+  //   icon: TypographyIcon,
+  //   to: '/utils/typography'
+  // },
+  // {
+  //   title: 'Shadows',
+  //   icon: ShadowIcon,
+  //   to: '/utils/shadows'
+  // },
+  // {
+  //   title: 'Colors',
+  //   icon: PaletteIcon,
+  //   to: '/utils/colors'
+  // },
 
-  {
-    title: 'Icons',
-    icon: WindmillIcon,
-    to: '/forms/radio',
-    children: [
-      {
-        title: 'Tabler Icons',
-        icon: CircleIcon,
-        to: '/icons/tabler'
-      },
-      {
-        title: 'Material Icons',
-        icon: CircleIcon,
-        to: '/icons/material'
-      }
-    ]
-  },
-  { divider: true },
-  {
-    title: 'Sample Page',
-    icon: BrandChromeIcon,
-    to: '/starter'
-  },
-  {
-    title: 'Documentation',
-    icon: HelpIcon,
-    to: 'https://codedthemes.gitbook.io/berry-vuetify/',
-    type: 'external'
-  }
+  // {
+  //   title: 'Icons',
+  //   icon: WindmillIcon,
+  //   to: '/forms/radio',
+  //   children: [
+  //     {
+  //       title: 'Tabler Icons',
+  //       icon: CircleIcon,
+  //       to: '/icons/tabler'
+  //     },
+  //     {
+  //       title: 'Material Icons',
+  //       icon: CircleIcon,
+  //       to: '/icons/material'
+  //     }
+  //   ]
+  // },
+  // { divider: true },
+  // {
+  //   title: 'Sample Page',
+  //   icon: BrandChromeIcon,
+  //   to: '/starter'
+  // },
+  // {
+  //   title: 'Documentation',
+  //   icon: HelpIcon,
+  //   to: 'https://codedthemes.gitbook.io/berry-vuetify/',
+  //   type: 'external'
+  // }
 ];
 
 export default sidebarItem;

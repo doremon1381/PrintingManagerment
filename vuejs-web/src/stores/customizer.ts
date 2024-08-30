@@ -21,6 +21,7 @@ export const useCustomizerStore = defineStore({
     },
     SET_CUSTOMIZER_DRAWER(payload: boolean) {
       this.Customizer_drawer = payload;
+      console.log(payload);
     },
     SET_FONT(payload: string) {
       this.fontTheme = payload;

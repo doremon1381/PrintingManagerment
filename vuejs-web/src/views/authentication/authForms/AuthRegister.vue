@@ -1,21 +1,34 @@
 <script setup>
 import { ref } from 'vue';
 import Google from '@/assets/images/auth/social-google.svg';
+import { useAuthStore } from '@/stores/auth';
 const checkbox = ref(false);
 const show1 = ref(false);
 const password = ref('');
 const email = ref('');
+const username = ref('');
 const Regform = ref();
 const firstname = ref('');
 const lastname = ref('');
+const dateOfBirth = ref('');
+const phone = ref('');
+const gender = ref('');
+const role = ref('');
 const passwordRules = ref([
   (v) => !!v || 'Password is required',
-  (v) => (v && v.length <= 10) || 'Password must be less than 10 characters'
+  //(v) => (v && v.length <= 10) || 'Password must be less than 10 characters'
 ]);
-const emailRules = ref([(v) => !!v || 'E-mail is required', (v) => /.+@.+\..+/.test(v) || 'E-mail must be valid']);
+const emailRules = ref([(v) => /.+@.+\..+/.test(v) || 'E-mail must be valid']);
+const userNameRules = ref([(v)=> !!v || "username is required!"]);
+
+// function validate() {
+//   Regform.value.validate();
+// }
 
 function validate() {
-  Regform.value.validate();
+  const authStore = useAuthStore();
+  //console.log(email.value);
+  return authStore.signUp(firstname.value, firstname.value.trim() + " " + lastname.value.trimStart().trimEnd(), username.value, password.value, email.value).catch((error) => {console.log(error);});
 }
 </script>
 
@@ -56,9 +69,9 @@ function validate() {
       </v-col>
     </v-row>
     <v-text-field
-      v-model="email"
-      :rules="emailRules"
-      label="Email Address / Username"
+      v-model="username"
+      :rules="userNameRules"
+      label="Username"
       class="mt-4 mb-4"
       required
       density="comfortable"
@@ -80,6 +93,64 @@ function validate() {
       @click:append="show1 = !show1"
       class="pwdInput"
     ></v-text-field>
+    <v-text-field
+      v-model="email"
+      :rules="emailRules"
+      label="Email"
+      class="mt-4 mb-4"
+      required
+      density="comfortable"
+      hide-details="auto"
+      variant="outlined"
+      color="primary"
+    ></v-text-field>    
+    <v-text-field
+      v-model="dateOfBirth"
+      label="Date of birth"
+      class="mt-4 mb-4"
+      required
+      density="comfortable"
+      hide-details="auto"
+      variant="outlined"
+      color="primary"
+    ></v-text-field>    
+    <v-text-field
+      v-model="phone"
+      label="Phone number"
+      class="mt-4 mb-4"
+      required
+      density="comfortable"
+      hide-details="auto"
+      variant="outlined"
+      color="primary"
+    ></v-text-field>
+<!--     
+    <v-text-field
+      v-model="gender"
+      label="Gender"
+      class="mt-4 mb-4"
+      required
+      density="comfortable"
+      hide-details="auto"
+      variant="outlined"
+      color="primary"
+    ></v-text-field> -->
+        <v-select label="Gender" :items="['Male', 'Female', 'Other']">
+
+        </v-select>
+        <v-select label="Role" :items="['employee', 'designer', 'deliver', 'manager', 'leader']">
+
+        </v-select>
+    <!-- <v-text-field
+      v-model="role"
+      label="Role"
+      class="mt-4 mb-4"
+      required
+      density="comfortable"
+      hide-details="auto"
+      variant="outlined"
+      color="primary"
+    ></v-text-field> -->
 
     <div class="d-sm-inline-flex align-center mt-2 mb-7 mb-sm-0 font-weight-bold">
       <v-checkbox

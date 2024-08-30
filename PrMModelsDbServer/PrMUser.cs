@@ -39,7 +39,6 @@ namespace PrMDbModels
         /// TODO: Will learn how to use it later
         /// </summary>
         public override string? SecurityStamp { get; set; } = null;
-        public int? TeamId { get; set; } = null;
         public bool IsActive { get; set; } = false;
         ///// <summary>
         ///// TODO: to allow user-agent can use refresh-token to get new access token using token enpoint

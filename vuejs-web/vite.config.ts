@@ -32,6 +32,13 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['vuetify'],
-    entries: ['./src/**/*.vue']
+    entries: ['./src/**/*.vue'],
+    // TODO: for error: https://github.com/vitejs/vite/discussions/5912
+    esbuildOptions: {
+      // Node.js global to browser globalThis
+      define: {
+          global: 'globalThis',
+      },
+    },
   }
 });

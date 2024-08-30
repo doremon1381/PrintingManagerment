@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { SettingsIcon, LogoutIcon, UserIcon } from 'vue-tabler-icons';
 import { useAuthStore } from '@/stores/auth';
 
-const swt1 = ref(true);
+//const swt1 = ref(true);
 const swt2 = ref(false);
 const authStore = useAuthStore();
 </script>
@@ -13,8 +13,8 @@ const authStore = useAuthStore();
   <!-- profile DD -->
   <!-- ---------------------------------------------- -->
   <div class="pa-4">
-    <h4 class="mb-n1">Good Morning, <span class="font-weight-regular">John Doe</span></h4>
-    <span class="text-subtitle-2 text-medium-emphasis">Project admin</span>
+    <h4 class="mb-n1">Good Morning, <span class="font-weight-regular">{{ authStore.user["sub"] }}</span></h4>
+    <span class="text-subtitle-2 text-medium-emphasis">Project's {{ authStore?.user["scope"] }}</span>
 
     <v-text-field persistent-placeholder placeholder="Search" class="my-3" color="primary" variant="outlined" hide-details>
       <template v-slot:prepend-inner>
@@ -23,22 +23,22 @@ const authStore = useAuthStore();
     </v-text-field>
 
     <v-divider></v-divider>
-    <perfect-scrollbar style="height: calc(100vh - 300px); max-height: 515px">
-      <div class="bg-lightwarning rounded-md pa-5 my-3 circle sm-circle lg-circle">
+    <perfect-scrollbar style="height: calc(100vh - 300px); max-height: 400px">
+      <!-- <div class="bg-lightwarning rounded-md pa-5 my-3 circle sm-circle lg-circle">
         <h4>Upgrade your plan</h4>
         <h6 class="text-subtitle-2 text-medium-emphasis mr-11 pr-11 mb-3 mt-2">70% discount for 1 years subscriptions.</h6>
         <v-btn color="warning" variant="flat" target="_" href="https://codedthemes.com/item/berry-vue-admin-dashboard/"> Go Premium </v-btn>
-      </div>
+      </div> -->
 
       <v-divider></v-divider>
 
       <div class="bg-lightprimary rounded-md px-5 py-3 my-3">
-        <div class="d-flex align-center justify-space-between">
+        <!-- <div class="d-flex align-center justify-space-between">
           <h5 class="text-h5">Start DND Mode</h5>
           <div>
             <v-switch v-model="swt1" color="primary" hide-details></v-switch>
           </div>
-        </div>
+        </div> -->
         <div class="d-flex align-center justify-space-between">
           <h5 class="text-h5">Allow Notifications</h5>
           <div>

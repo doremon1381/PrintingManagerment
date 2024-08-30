@@ -8,9 +8,13 @@ import NavItem from './NavItem/NavItem.vue';
 import NavCollapse from './NavCollapse/NavCollapse.vue';
 import ExtraBox from './extrabox/ExtraBox.vue';
 import Logo from '../logo/LogoMain.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const customizer = useCustomizerStore();
 const sidebarMenu = shallowRef(sidebarItems);
+const auth = useAuthStore();
+const isAdmin = auth.user.scope.includes("admin");
+console.log(isAdmin);
 </script>
 
 <template>
@@ -43,6 +47,8 @@ const sidebarMenu = shallowRef(sidebarItems);
           <v-divider class="my-3" v-else-if="item.divider" />
           <!---If Has Child -->
           <NavCollapse class="leftPadding" :item="item" :level="0" v-else-if="item.children" />
+          <!---If is for addmin -->
+          <NavItem class="leftPadding" :item="item" :level="0" v-else-if="item.forAdmin" />
           <!---Single Item-->
           <NavItem :item="item" v-else class="leftPadding" />
           <!---End Single Item-->
@@ -51,9 +57,9 @@ const sidebarMenu = shallowRef(sidebarItems);
       <!-- <div class="pa-4">
         <ExtraBox />
       </div> -->
-      <div class="pa-4 text-center">
+      <!-- <div class="pa-4 text-center">
         <v-chip color="inputBorder" size="small"> v1.2.0 </v-chip>
-      </div>
+      </div> -->
     </perfect-scrollbar>
   </v-navigation-drawer>
 </template>

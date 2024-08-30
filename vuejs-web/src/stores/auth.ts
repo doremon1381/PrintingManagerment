@@ -4,10 +4,12 @@ import { ref } from 'vue';
 //import { fetchWrapper } from '@/utils/helpers/fetch-wrapper';
 import { AxiosHeaders } from 'axios';
 import { ByteArrayToBase64NoPadding, StringUTF8ToByteArray, ByteArrayToBase64, GenerateRandomStringWithLength } from '@/extensions/RNGCryptoUltilities.js';
-import { useIdentityOptions } from '@/stores/identityOptions';
+//import { useIdentityOptions } from '@/stores/identityOptions';
+//import { tokenVerifyer } from '@/stores/JwtValidate';
 import axios from 'axios';
 //import { mapMutations } from 'vuex'
 //import { useStore } from 'vuex'
+import { useAxiosGet, useAxiosGetWithHeaders } from '@/extensions/RequestUltilities';
 
 const authorizeEndpoint = "https://localhost:7180/oauth2/authorize";
 const redirecUri = "http://localhost:5173";
@@ -60,37 +62,27 @@ export const useAuthStore = defineStore({
       const authorization = ByteArrayToBase64(StringUTF8ToByteArray(username + ":" + password));
       //const authorizationRequest = authorizeEndpoint + "?response_type=code&scope=openid%20profile%20email%20offline_access&redirect_uri=" + redirecUri + "&client_id="+ clientId + "&state=" + state;
       const webServerTestRequest = "https://localhost:7209";
-      //const promises = [
-        axios.get(webServerTestRequest)
-        .then(response => {
-          console.log(response.data);
-          let location = "";
-          const headers = response.headers;
-          //console.log("401 client response: "+headers);
+      
+      useAxiosGet(webServerTestRequest, response => {
+        // console.log(response.data);
+        let location = "";
+        const headers = response.headers;
+        //console.log("401 client response: "+headers);
 
-          if (headers instanceof AxiosHeaders && headers.has('location')) {
-            location = headers["location"];
-            
-            authCodeRequest = location + "&state=" + state + "&response_type=code&scope=openid%20profile%20email%20offline_access";
-            console.log("id server: " + authCodeRequest);
+        if (headers instanceof AxiosHeaders && headers.has('location')) {
+          location = headers["location"];
+          
+          authCodeRequest = location + "&state=" + state + "&response_type=code&scope=openid%20profile%20email%20offline_access";
+          // console.log("id server: " + authCodeRequest);
 
-            clientState.value = response.data.client_state;
-            console.log("clientState: " + clientState.value);
-          }
-        })
-        .catch(error => {
-          //console.log(error);
-          console.log(error.response.data);
-        }).then(()=>{
-          axios.get(authCodeRequest, {
-            headers:{
+          clientState.value = response.data.client_state;
+          // console.log("clientState: " + clientState.value);
+        }},() => {
+          useAxiosGetWithHeaders(authCodeRequest, {
               //state: state,
               Authorization: "Basic "+ authorization
-            }
-          })
-          .then(response => {
-            authorizationCodeResponse.value = response.data.code;
-  
+            }, response => {
+            authorizationCodeResponse.value = response.data.code;  
             // console.log(response.data.location);
             if(ValidateState(response.data.state))
             {
@@ -100,42 +92,51 @@ export const useAuthStore = defineStore({
             //console.log(headers);
             if (headers instanceof AxiosHeaders && headers.has('location')) {
                 clientExchangeCodeRequest = headers["location"] + "&client_state=" + clientState.value + "&state=" + state;
-                //console.log(clientExchangeCodeRequest);
-
+                console.log(clientExchangeCodeRequest);
             }
+          }, ()=>{
+            useAxiosGet(clientExchangeCodeRequest, response => {
+              //console.log(response);
+              const user = parseJwt(response.data);
+              user.access_token = response.data;
+              // console.log(user);
+              // TODO: do it later
+              //const isVerified = tokenVerifyer(response.data);
+              // update pinia state
+              this.user = user;
+              // store user details and jwt in local storage to keep user logged in between page refreshes
+              localStorage.setItem('user', JSON.stringify(user));
+              // redirect to previous url or default to home page
+              router.push(this.returnUrl || '/dashboard/default');
+            }, () => {})
           })
-          .catch(error => {
-            console.log(error);
-          }).then(()=>{
-            axios.get(clientExchangeCodeRequest)
-            .then(response => {
-              console.log(response);
-              localStorage.setItem('user', JSON.stringify(response.data));
-            })
-            .catch(error => {
-              console.log(error);
-            })
-          })
-        });
-        
-        //axios(...),
-    //];
-    // Promise.all(promises).then(ordered_array => {
-    //     ordered_array.forEach( result => { console.log(result) } );
-    // });
-
-
-      // // update pinia state
-      // this.user = user;
-      // // store user details and jwt in local storage to keep user logged in between page refreshes
-      // localStorage.setItem('user', JSON.stringify(user));
-      // redirect to previous url or default to home page
-      router.push(this.returnUrl || '/dashboard/default');
+            
+      })
     },
     logout() {
       this.user = null;
       localStorage.removeItem('user');
       router.push('/auth/login');
+    },
+    async signUp(name: string, fullName: string, username: string , password: string, email: string){
+      // console.log(encodeURI(name));
+      // console.log(encodeURI(username));
+      // console.log(encodeURI(fullName));
+      // console.log(encodeURI(email));
+      const authorization = ByteArrayToBase64(StringUTF8ToByteArray(username + ":" + password));
+      axios.get(authorizeEndpoint + "?prompt=create", {
+        headers:{
+          Register: "Basic " + authorization,
+          Email: email,
+          Name: encodeURI(name),
+          FullName: encodeURI(fullName)
+        }
+      }).then(response => {
+        console.log(response);
+        router.push(this.returnUrl || '/auth/login');
+      }).catch(error => {
+        console.log(error);
+      })
     }
   }
 });

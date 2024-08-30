@@ -85,9 +85,10 @@ namespace PrintingManagermentServer.Services
             catch (Exception ex)
             {
                 var error = ex.Message;
+                return AuthenticateResult.Fail(ex.Message);
             }
 
-            return AuthenticateResult.NoResult();
+            //return AuthenticateResult.Fail("internal server error!");
         }
 
 

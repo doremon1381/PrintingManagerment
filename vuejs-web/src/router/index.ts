@@ -35,16 +35,8 @@ router.beforeEach(async (to, from, next) => {
   const publicPages = ['/auth/login'];
   const authRequired = !publicPages.includes(to.path);
   const auth: AuthStore = useAuthStore();
-  // console.log("beforeEach: ");
-  // console.log(to);
 
-  if (to.matched.some((record) => {
-    // console.log("to.match: ");
-    // console.log(record);
-    // console.log("requiresAuth: ");
-    // console.log(record.meta.requiresAuth);
-    record.meta.requiresAuth
-  })) {
+  if (to.matched.some((record) => record.meta.requiresAuth)) {
     if (authRequired && !auth.user) {
       auth.returnUrl = to.fullPath;
       return next('/auth/login');
