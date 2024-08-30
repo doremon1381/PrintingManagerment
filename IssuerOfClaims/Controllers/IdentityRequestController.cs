@@ -577,7 +577,13 @@ namespace IssuerOfClaims.Controllers
 
                                 tokenResponse.AccessToken = access_token;
                                 tokenResponse.IdToken = id_token;
-                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+
+                                // TODO: access token expired time may over the refresh token expired time
+                                TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
+                                if (diff.TotalSeconds < 3600)
+                                    tokenResponse.AccessTokenExpiried = DateTime.Now.AddSeconds(diff.TotalSeconds);
+                                else
+                                    tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
 
                                 var refresh_token = latestLoginSession.TokenResponse.RefreshToken;
                                 if (string.IsNullOrEmpty(refresh_token))
