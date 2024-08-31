@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PrintingManagermentServer.Models;
-using PrMModels;
 
 namespace PrintingManagermentServer.Database
 {

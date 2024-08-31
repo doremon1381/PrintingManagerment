@@ -44,7 +44,8 @@ namespace PrintingManagermentServer.Controllers
                         Name = u.FullName,
                         Email = u.Email,
                         Phone = u.PhoneNumber,
-                        Group = permissions
+                        Roles = permissions,
+                        Group = u.Team == null ? "" : u.Team.Name
                     };
 
                     returnObj.Add(temp);

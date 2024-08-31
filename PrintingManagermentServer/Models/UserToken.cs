@@ -1,9 +1,8 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using PrintingManagermentServer.Models;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrMModels
+namespace PrintingManagermentServer.Models
 {
     [Table("UserTokens")]
     [PrimaryKey(nameof(Id))]
@@ -20,6 +19,11 @@ namespace PrMModels
         public DateTime? UpdateTime { get; set; } = null;
         public string? Avatar { get; set; } = null;
         public bool IsEmailConfirmed { get; set; } = false;
+
+        public int? TeamId { get; set; }
+        public Team? Team { get; set; }
+
+        public List<TeamManager>? TeamManager { get; set; }
 
         #region ignore
         [NotMapped]

@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PrMModels;
+using PrintingManagermentServer.Models;
 
 namespace PrintingManagermentServer.Database
 {
@@ -26,9 +26,16 @@ namespace PrintingManagermentServer.Database
             return obj;
         }
 
+        /// <summary>
+        /// TODO: for now, will change
+        /// </summary>
+        /// <returns></returns>
         public List<UserToken> GetAllWithInclude()
         {
-            var users = _userTokenDbServices.Include(u => u.Permissions).ThenInclude(p => p.Role).ToList();
+            var users = _userTokenDbServices
+                .Include(u => u.Permissions).ThenInclude(p => p.Role)
+                .Include(u => u.Team)
+                .ToList();
 
             return users;
         }

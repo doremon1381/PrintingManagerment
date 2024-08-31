@@ -1,9 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using PrintingManagermentServer.Models;
-using PrMModels;
 
 namespace PrintingManagermentServer.Database
 {
@@ -19,6 +16,8 @@ namespace PrintingManagermentServer.Database
         public DbSet<LoginSessionWithToken> LoginSessionWithTokens { get; set; }
         public DbSet<TokenResponse> TokenResponses { get; set; }
         public DbSet<IncomingToken> IncomingTokens { get; set; }
+        public DbSet<Team> Teams { get; set; }
+        public DbSet<TeamManager> TeamManager { get; set; }
 
         public PrintingManagermentDbContext(DbContextOptions<PrintingManagermentDbContext> options, ILogger<PrintingManagermentDbContext> logger)
             : base(options)

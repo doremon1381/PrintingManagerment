@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PrMModels;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PrintingManagermentServer.Models

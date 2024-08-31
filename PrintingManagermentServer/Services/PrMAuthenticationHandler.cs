@@ -2,9 +2,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
-using PrMModels;
+using PrintingManagermentServer.Models;
 using PrMServerUltilities.Identity;
-using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using static PrMServerUltilities.Identity.OidcConstants;
@@ -50,11 +49,6 @@ namespace PrintingManagermentServer.Services
                 var accesstoken = headers.Authorization.ToString();
                 if (!string.IsNullOrEmpty(accesstoken))
                 {
-                    //// If the session is valid, return success:
-                    //var claims = new[] { new Claim(ClaimTypes.Name, "Test") };
-                    //var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Tokens"));
-                    //var ticket = new AuthenticationTicket(principal, Scheme.Name);
-                    //return AuthenticateResult.Success(ticket);
                     accesstoken = accesstoken.Replace("Bearer", "").Trim();
 
                     var loginSession = _loginSessionManager.GetLoginSessionByAccessToken(accesstoken);

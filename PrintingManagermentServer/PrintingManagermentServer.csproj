@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\PrMModelsDbServer\PrMModelsDbServer.csproj" />
     <ProjectReference Include="..\PrMServerUltilities\PrMServerUltilities.csproj" />
   </ItemGroup>
 

@@ -10,20 +10,11 @@ using System.Text;
 using PrMServerUltilities.Extensions;
 using static PrMServerUltilities.Identity.OidcConstants;
 using Microsoft.IdentityModel.Tokens;
-using PrMModels;
 using PrintingManagermentServer.Services;
-using Newtonsoft.Json;
-using Azure.Core;
 using Newtonsoft.Json.Linq;
 using PrintingManagermentServer.Models;
 using PrMServerUltilities.Identity;
 using PrintingManagermentServer.Database;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Security;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography.X509Certificates;
 
 namespace PrintingManagermentServer.Controllers
 {

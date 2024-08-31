@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using PrMModels;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
