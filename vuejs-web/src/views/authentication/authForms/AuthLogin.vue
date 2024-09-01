@@ -12,9 +12,10 @@ const password = ref('*Nokia1200');
 const username = ref('doremon1383');
 const passwordRules = ref([
   (v) => !!v || 'Password is required',
-  (v) => (v && v.length <= 10) || 'Password must be less than 10 characters'
+  //(v) => (v && v.length <= 10) || 'Password must be less than 10 characters'
 ]);
-const emailRules = ref([(v) => !!v || 'E-mail is required', (v) => /.+@.+\..+/.test(v) || 'E-mail must be valid']);
+// TODO: comment for now
+//const emailRules = ref([(v) => !!v || 'E-mail is required', (v) => /.+@.+\..+/.test(v) || 'E-mail must be valid']);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function validate(values, { setErrors }) {
@@ -74,7 +75,7 @@ function validate(values, { setErrors }) {
         hide-details
       ></v-checkbox>
       <div class="ml-auto">
-        <a href="javascript:void(0)" class="text-primary text-decoration-none">Forgot password?</a>
+        <a href="/auth/changePassword" class="text-primary text-decoration-none">Forgot password?</a>
       </div>
     </div>
     <v-btn color="secondary" :loading="isSubmitting" block class="mt-2" variant="flat" size="large" :disabled="valid" type="submit">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue';
 import { useCustomizerStore } from '../../../stores/customizer';
-import sidebarItems from './sidebarItem';
+import sidebarItems, { type menu } from './sidebarItem';
 
 import NavGroup from './NavGroup/NavGroup.vue';
 import NavItem from './NavItem/NavItem.vue';
@@ -14,7 +14,17 @@ const customizer = useCustomizerStore();
 const sidebarMenu = shallowRef(sidebarItems);
 const auth = useAuthStore();
 const isAdmin = auth.user.scope.includes("admin");
-console.log(isAdmin);
+//console.log(isAdmin);
+
+function isVisibleForAdmin(item : menu) : boolean {
+  if (item.forAdmin != null){
+    return isAdmin ? true : false;
+  }
+  else {
+    return true;
+  }
+}
+
 </script>
 
 <template>
@@ -47,10 +57,8 @@ console.log(isAdmin);
           <v-divider class="my-3" v-else-if="item.divider" />
           <!---If Has Child -->
           <NavCollapse class="leftPadding" :item="item" :level="0" v-else-if="item.children" />
-          <!---If is for addmin -->
-          <NavItem class="leftPadding" :item="item" :level="0" v-else-if="item.forAdmin" />
           <!---Single Item-->
-          <NavItem :item="item" v-else class="leftPadding" />
+          <NavItem :item="item" v-else class="leftPadding" v-show="isVisibleForAdmin(item)" />
           <!---End Single Item-->
         </template>
       </v-list>

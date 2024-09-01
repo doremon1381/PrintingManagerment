@@ -16,6 +16,11 @@ const AuthRoutes = {
       component: () => import('@/views/authentication/auth/RegisterPage.vue')
     },
     {
+      name:'Change Password',
+      path: '/auth/changePassword',
+      component: () => import('@/views/authentication/auth/ChangePassword.vue')
+    },
+    {
       name: 'Error 404',
       path: '/pages/error',
       component: () => import('@/views/pages/maintenance/error/Error404Page.vue')

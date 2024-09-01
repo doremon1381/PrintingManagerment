@@ -4,22 +4,25 @@ import Google from '@/assets/images/auth/social-google.svg';
 import { useAuthStore } from '@/stores/auth';
 const checkbox = ref(false);
 const show1 = ref(false);
-const password = ref('');
-const email = ref('');
-const username = ref('');
+const password = ref('*Tinhte2024');
+const email = ref('doremon1380@gmail.com');
+const username = ref('doremon1397');
 const Regform = ref();
-const firstname = ref('');
-const lastname = ref('');
-const dateOfBirth = ref('');
-const phone = ref('');
-const gender = ref('');
-const role = ref('');
+const firstname = ref('Tuấn');
+const lastname = ref('Nguyễn Văn');
+const dateOfBirth = ref('08/11/1994');
+const phone = ref('0366096986');
+const gender = ref('male');
+//const roles = ref('employee');
+// const errorStr = ref('');
+// const errorAlert = ref(false);
 const passwordRules = ref([
   (v) => !!v || 'Password is required',
-  //(v) => (v && v.length <= 10) || 'Password must be less than 10 characters'
+  //(v) => /([a-zA-Z0-9])({9,})/.test(v) || 'Password must be more than 10 characters'
 ]);
-const emailRules = ref([(v) => /.+@.+\..+/.test(v) || 'E-mail must be valid']);
 const userNameRules = ref([(v)=> !!v || "username is required!"]);
+const emailRules = ref([(v) => !!v || 'E-mail is required', (v) => /.+@.+\..+/.test(v) || 'E-mail must be valid']);
+const phoneRules = ref([(v) => /^(03|09)\d{8}$/.test(v) || "phone number must start with 03 or 09 and have 10 digits!"]);
 
 // function validate() {
 //   Regform.value.validate();
@@ -28,11 +31,27 @@ const userNameRules = ref([(v)=> !!v || "username is required!"]);
 function validate() {
   const authStore = useAuthStore();
   //console.log(email.value);
-  return authStore.signUp(firstname.value, firstname.value.trim() + " " + lastname.value.trimStart().trimEnd(), username.value, password.value, email.value).catch((error) => {console.log(error);});
+  return authStore.signUp(firstname.value, firstname.value.trim() + " " + lastname.value.trimStart().trimEnd(), username.value, password.value, email.value, gender.value)
+  .catch((error) => {console.log(error);});
 }
+
+// created(() => {
+//   setTimeout(() => {
+//     errorAlert.value = false
+//   }, 5000)}
+// ); 
 </script>
 
 <template>
+  <template>
+  <!-- <v-alert
+    :text="errorStr"
+    v-model="errorAlert"
+    title="Alert title"
+    color="error"
+    icon="$error"
+  ></v-alert> -->
+</template>
   <v-btn block color="primary" variant="outlined" class="text-lightText googleBtn">
     <img :src="Google" alt="google" />
     <span class="ml-2">Sign up with Google</span></v-btn
@@ -116,6 +135,7 @@ function validate() {
     ></v-text-field>    
     <v-text-field
       v-model="phone"
+      :rules="phoneRules"
       label="Phone number"
       class="mt-4 mb-4"
       required
@@ -124,33 +144,11 @@ function validate() {
       variant="outlined"
       color="primary"
     ></v-text-field>
-<!--     
-    <v-text-field
-      v-model="gender"
-      label="Gender"
-      class="mt-4 mb-4"
-      required
-      density="comfortable"
-      hide-details="auto"
-      variant="outlined"
-      color="primary"
-    ></v-text-field> -->
-        <v-select label="Gender" :items="['Male', 'Female', 'Other']">
+        <v-select label="Gender" :items="['male', 'female', 'other']" v-model="gender" variant="outlined">
 
         </v-select>
-        <v-select label="Role" :items="['employee', 'designer', 'deliver', 'manager', 'leader']">
-
-        </v-select>
-    <!-- <v-text-field
-      v-model="role"
-      label="Role"
-      class="mt-4 mb-4"
-      required
-      density="comfortable"
-      hide-details="auto"
-      variant="outlined"
-      color="primary"
-    ></v-text-field> -->
+        <!-- <v-select label="Role" :items="['employee', 'designer', 'deliver', 'manager', 'leader']" v-model="roles" multiple variant="outlined">
+        </v-select> -->
 
     <div class="d-sm-inline-flex align-center mt-2 mb-7 mb-sm-0 font-weight-bold">
       <v-checkbox

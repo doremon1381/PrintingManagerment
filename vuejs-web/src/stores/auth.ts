@@ -12,16 +12,17 @@ import axios from 'axios';
 import { useAxiosGet, useAxiosGetWithHeaders } from '@/extensions/RequestUltilities';
 
 const authorizeEndpoint = "https://localhost:7180/oauth2/authorize";
-const redirecUri = "http://localhost:5173";
+//const redirecUri = "https://localhost:7209/auth/callback";
 const clientId = "PrintingManagermentServer";
 
 const baseUrl = `${import.meta.env.VITE_API_URL}/users`;
-const state :string = GenerateRandomStringWithLength(32);
+const authState :string = GenerateRandomStringWithLength(32);
+const registerState :string = GenerateRandomStringWithLength(32);
 //const store = useStore();
 
-function ValidateState(st: string)
+function ValidateState(incomingState: string, currentState: string)
 {
-    if (st !== state)
+    if (incomingState !== currentState)
     {
       return false;
     }
@@ -40,10 +41,12 @@ function parseJwt (token: string) {
 }
 
 //const identityOptions = useIdentityOptions();
-const authorizationCodeResponse = ref(null);
-const clientState = ref("");
-var authCodeRequest = "";
-var clientExchangeCodeRequest= "";
+//const authorizationCodeResponse = ref(null);
+let clientState = "";
+let authCodeUri = "";
+let accessTokenUri= "";
+let registerUri = "";
+const webServerTestRequest = "https://localhost:7209";
 
 export const useAuthStore = defineStore({
   id: 'auth',
@@ -61,7 +64,6 @@ export const useAuthStore = defineStore({
       // const user = await fetchWrapper.post(`${baseUrl}/authenticate`, { username, password });
       const authorization = ByteArrayToBase64(StringUTF8ToByteArray(username + ":" + password));
       //const authorizationRequest = authorizeEndpoint + "?response_type=code&scope=openid%20profile%20email%20offline_access&redirect_uri=" + redirecUri + "&client_id="+ clientId + "&state=" + state;
-      const webServerTestRequest = "https://localhost:7209";
       
       useAxiosGet(webServerTestRequest, response => {
         // console.log(response.data);
@@ -71,35 +73,34 @@ export const useAuthStore = defineStore({
 
         if (headers instanceof AxiosHeaders && headers.has('location')) {
           location = headers["location"];
-          
-          authCodeRequest = location + "&state=" + state + "&response_type=code&scope=openid%20profile%20email%20offline_access";
+          // TODO: from client: client_id, redirect_uri, nonce, code_challenge, code_challenge_method, client_state
+          //     : adding missing property into uri
+          authCodeUri = location + "&state=" + authState + "&response_type=code&scope=openid%20profile%20email%20offline_access";
           // console.log("id server: " + authCodeRequest);
 
-          clientState.value = response.data.client_state;
+          clientState = response.data.client_state;
           // console.log("clientState: " + clientState.value);
         }},() => {
-          useAxiosGetWithHeaders(authCodeRequest, {
-              //state: state,
+          useAxiosGetWithHeaders(authCodeUri, {
               Authorization: "Basic "+ authorization
             }, response => {
-            authorizationCodeResponse.value = response.data.code;  
+            //authorizationCodeResponse.value = response.data.code;  
             // console.log(response.data.location);
-            if(ValidateState(response.data.state))
+            if(!ValidateState(response.data.state, authState))
             {
-              //console.log("code: " + response.data.code);
+              console.log("incoming state is not valid");
+              router.push('/auth/login');
             }
             const headers = response.headers;
             //console.log(headers);
             if (headers instanceof AxiosHeaders && headers.has('location')) {
-                clientExchangeCodeRequest = headers["location"] + "&client_state=" + clientState.value + "&state=" + state;
-                console.log(clientExchangeCodeRequest);
+                accessTokenUri = headers["location"] + "&client_state=" + clientState + "&state=" + authState;
+                console.log(accessTokenUri);
             }
           }, ()=>{
-            useAxiosGet(clientExchangeCodeRequest, response => {
-              //console.log(response);
+            useAxiosGet(accessTokenUri, response => {
               const user = parseJwt(response.data);
               user.access_token = response.data;
-              // console.log(user);
               // TODO: do it later
               //const isVerified = tokenVerifyer(response.data);
               // update pinia state
@@ -118,24 +119,44 @@ export const useAuthStore = defineStore({
       localStorage.removeItem('user');
       router.push('/auth/login');
     },
-    async signUp(name: string, fullName: string, username: string , password: string, email: string){
-      // console.log(encodeURI(name));
-      // console.log(encodeURI(username));
-      // console.log(encodeURI(fullName));
-      // console.log(encodeURI(email));
+    async signUp(name: string, fullName: string, username: string , password: string, email: string, gender: string){
       const authorization = ByteArrayToBase64(StringUTF8ToByteArray(username + ":" + password));
-      axios.get(authorizeEndpoint + "?prompt=create", {
-        headers:{
-          Register: "Basic " + authorization,
-          Email: email,
-          Name: encodeURI(name),
-          FullName: encodeURI(fullName)
-        }
-      }).then(response => {
-        console.log(response);
-        router.push(this.returnUrl || '/auth/login');
-      }).catch(error => {
-        console.log(error);
+
+      useAxiosGet(webServerTestRequest, response => {
+        let location = "";
+        const headers = response.headers;
+
+        if (headers instanceof AxiosHeaders && headers.has('location')) {
+          location = headers["location"];
+          
+          registerUri = location + "&state=" + registerState + 
+            "&prompt=create&scope=openid%20profile%20email%20offline_access" + 
+            "&name=" + encodeURI(name) + 
+            "&fullname=" + encodeURI(fullName) + 
+            "&email=" + email + 
+            "&gender=" + gender;
+          // console.log("id server: " + authCodeRequest);
+
+          clientState = response.data.client_state;
+          // console.log("clientState: " + clientState.value);
+        }},() => {
+          useAxiosGetWithHeaders(registerUri, {
+              "Register": "Basic "+ authorization
+            }, response => {
+            // console.log(response.data.location);
+            if(!ValidateState(response.data.state, registerState))
+            {
+              console.log("incoming state is not valid");
+              // TODO: show alert, but currently not have
+              //router.push('/auth/login');
+            }
+
+            router.push(this.returnUrl || '/auth/login');
+            // if (headers instanceof AxiosHeaders && headers.has('location')) {
+            //     accessTokenUri = headers["location"] + "&client_state=" + clientState + "&state=" + authState;
+            //     console.log(accessTokenUri);
+            // }
+          }, () => {});            
       })
     }
   }
