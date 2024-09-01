@@ -8,10 +8,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace PrMDbModels
 {
 #if DbServer
-    [Table("PrMRequiredLoginSession")]
+    [Table("TokenRequestSessions")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class PrMRequiredLoginSession: ModelBase
+    public class TokenRequestSession: ModelBase
     {
         /// <summary>
         /// One time use only, for "Authorization code flow" or "hybrid flow"
@@ -44,9 +44,9 @@ namespace PrMDbModels
 
         public bool IsOfflineAccess { get; set; } = false;
 
-        [ForeignKey("LoginSessionWithResponseId")]
-        public int? LoginSessionWithResponseId { get; set; }
-        public LoginSessionWithResponse? LoginSessionWithResponse { get; set; }
+        [ForeignKey("TokenRequestHandlerId")]
+        public int? TokenRequestHandlerId { get; set; }
+        public TokenRequestHandler? TokenRequestHandler { get; set; }
 
 #if DbServer
         //public int? UserId { get; set; }

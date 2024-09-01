@@ -92,6 +92,37 @@ namespace IssuerOfClaims.Controllers
             //     : because "state" still RECOMMENDED in some case, so I will use it when it's provided for identity server
             requestQuerry.GetFromQueryString(AuthorizeRequest.State, out string state);
 
+            // TODO: try to add nonce in flow, will check it late
+            //     : because "nonce" still OPTIONAL in some case, so I will use it when it's provided for identity server
+            requestQuerry.GetFromQueryString(AuthorizeRequest.Nonce, out string nonce);
+
+            //TODO: base on scope, I will add claims in id token, so it will need to be verified with client's scope in memory or database
+            //    : Verify that a scope parameter is present and contains the openid scope value.
+            //    : (If no openid scope value is present, the request may still be a valid OAuth 2.0 request but is not an OpenID Connect request.)
+            requestQuerry.GetFromQueryString(AuthorizeRequest.Scope, out string scope);
+
+            // TODO: need to compare with existing client in memory or database
+            requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
+            if (string.IsNullOrEmpty(clientId))
+                return StatusCode(400, "client id is mismatch!");
+
+            var client = _clientDbServices.GetById(clientId);
+            if (client == null)
+                return StatusCode(400, "client id is wrong!");
+            string[] redirectUris = client.RedirectUris.Split(",");
+            // TODO: because in implicit grant flow, redirectUri is use to redirect to user-agent, 
+            //     : in logically, client does not know it before user-agent send a redirect_uri to client
+            //     : with browser's work, I think many browser can be user-agent, so it will be safe when client asks for redirect_uri from user-agent
+            requestQuerry.GetFromQueryString(AuthorizeRequest.RedirectUri, out string redirectUri);
+            redirectUri = System.Uri.UnescapeDataString(redirectUri);
+            if (string.IsNullOrEmpty(redirectUri))
+                return StatusCode(400, "Redirect uri is need for send a response back to where it needs!");
+            if (!redirectUris.Contains(redirectUri))
+                return StatusCode(400, "redirectUri is mismatch!");
+
+            if (string.IsNullOrEmpty(scope))
+                return StatusCode(ProtectedResourceErrors.InsufficientScope.StatusCodeWithError(), ProtectedResourceErrors.InsufficientScope);
+
             //if (string.IsNullOrEmpty(state))
             //    return StatusCode(400, "State of request must be implemented to avoid cross-site request forgery!");
             // https://openid.net/specs/openid-connect-prompt-create-1_0.html
@@ -99,16 +130,15 @@ namespace IssuerOfClaims.Controllers
             if (!string.IsNullOrEmpty(prompt)
                 && prompt.Equals("create"))
             {
-                return await RegisterUser(state);
+                return await RegisterUser(requestQuerry, state, scope, nonce, redirectUri, clientId);
             }
 
-            var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
+            //var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
 
             // TODO: why code is not included in request's header,
             //     : because I like it to be include in query's string!
             if (!HttpContext.Request.QueryString.HasValue)
                 return StatusCode(400, "Request must containt query string for authorization!");
-
 
             requestQuerry.GetFromQueryString(AuthorizeRequest.ResponseType, out string responseType);
 
@@ -124,34 +154,6 @@ namespace IssuerOfClaims.Controllers
             // TODO: by default when response mode is not set for response type is , use 
             if (string.IsNullOrEmpty(responseMode))
                 responseMode = GetDefaultResponseModeByResponseType(responseType);
-
-            // TODO: need to compare with existing client in memory or database
-            requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
-            if (string.IsNullOrEmpty(clientId))
-                return StatusCode(400, "client id is mismatch!");
-
-            var client = _clientDbServices.GetById(clientId);
-            string[] redirectUris = client.RedirectUris.Split(",");
-            // TODO: because in implicit grant flow, redirectUri is use to redirect to user-agent, 
-            //     : in logically, client does not know it before user-agent send a redirect_uri to client
-            //     : with browser's work, I think many browser can be user-agent, so it will be safe when client asks for redirect_uri from user-agent
-            requestQuerry.GetFromQueryString(AuthorizeRequest.RedirectUri, out string redirectUri);
-            redirectUri = System.Uri.UnescapeDataString(redirectUri);
-            if (string.IsNullOrEmpty(redirectUri))
-                return StatusCode(400, "Redirect uri is need for send a response back to where it needs!");
-            if (!redirectUris.Contains(redirectUri))
-                return StatusCode(400, "redirectUri is mismatch!");
-
-            // TODO: try to add nonce in flow, will check it late
-            //     : because "nonce" still OPTIONAL in some case, so I will use it when it's provided for identity server
-            requestQuerry.GetFromQueryString(AuthorizeRequest.Nonce, out string nonce);
-
-            //TODO: base on scope, I will add claims in id token, so it will need to be verified with client's scope in memory or database
-            //    : Verify that a scope parameter is present and contains the openid scope value.
-            //    : (If no openid scope value is present, the request may still be a valid OAuth 2.0 request but is not an OpenID Connect request.)
-            requestQuerry.GetFromQueryString(AuthorizeRequest.Scope, out string scope);
-            if (string.IsNullOrEmpty(scope))
-                return StatusCode(ProtectedResourceErrors.InsufficientScope.StatusCodeWithError(), ProtectedResourceErrors.InsufficientScope);
 
             var headers = HttpContext.Request.Headers;
 
@@ -206,8 +208,7 @@ namespace IssuerOfClaims.Controllers
             var client = _clientDbServices.GetById(clientId);
             if (client == null)
                 return StatusCode(400, "clientid may wrong!");
-            scope = System.Uri.UnescapeDataString(scope);
-            if (!client.AllowedScopes.Contains(scope))
+            if (!VerifyScope(scope, client))
                 return StatusCode(400, "scope is not allowed!");
 
             // TODO: add authorization code to loginSession
@@ -218,13 +219,13 @@ namespace IssuerOfClaims.Controllers
             requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallengeMethod, out string codeChallengeMethod);
             //requestQuerry.GetFromQueryString("client_state", out string clientState);
 
-            sessionAndResponse.LoginSession.CodeChallengeMethod = codeChallengeMethod;
-            sessionAndResponse.LoginSession.CodeChallenge = codeChallenge;
-            sessionAndResponse.LoginSession.AuthorizationCode = authorizationCode;
-            sessionAndResponse.LoginSession.Nonce = nonce;
+            sessionAndResponse.TokenRequestSession.CodeChallengeMethod = codeChallengeMethod;
+            sessionAndResponse.TokenRequestSession.CodeChallenge = codeChallenge;
+            sessionAndResponse.TokenRequestSession.AuthorizationCode = authorizationCode;
+            sessionAndResponse.TokenRequestSession.Nonce = nonce;
             //sessionAndResponse.LoginSession.ClientState = clientState;
-            sessionAndResponse.LoginSession.Scope = scope;
-            sessionAndResponse.LoginSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
+            sessionAndResponse.TokenRequestSession.Scope = scope;
+            sessionAndResponse.TokenRequestSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
 
             _loginSessionManager.UpdateLoginSessionWithRelation(sessionAndResponse);
 
@@ -255,6 +256,17 @@ namespace IssuerOfClaims.Controllers
             //     : https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
 
             //return StatusCode(200, authorizationCode);
+        }
+
+        private bool VerifyScope(string scope, PrMClient client)
+        {
+            scope = System.Uri.UnescapeDataString(scope);
+            foreach (var s in scope.Split(" "))
+            {
+                if (!client.AllowedScopes.Contains(s))
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -463,7 +475,7 @@ namespace IssuerOfClaims.Controllers
 
             //Verify that the Authorization Code is valid.
             //If possible, verify that the Authorization Code has not been previously used.
-            if (!loginSession.LoginSession.IsInLoginSession)
+            if (!loginSession.TokenRequestSession.IsInLoginSession)
                 // TODO: status code may wrong
                 return StatusCode(500, "login session is end!");
 
@@ -474,7 +486,7 @@ namespace IssuerOfClaims.Controllers
                 return StatusCode(400, "client credentials's info is missing!");
 
             var client = _clientDbServices.GetByIdAndSecret(clientId, clientSecret);
-            if (!loginSession.LoginSession.Client.Id.Equals(client.Id))
+            if (!loginSession.TokenRequestSession.Client.Id.Equals(client.Id))
                 // TODO: status code may wrong
                 return StatusCode(400, "something wrong with client which Authorization Code was issued to!");
 
@@ -487,23 +499,23 @@ namespace IssuerOfClaims.Controllers
                 return StatusCode(400, "redirect_uri is mismatch!");
 
             // TODO: by default, those two go along together, it may wrong in future coding
-            if (loginSession.LoginSession.CodeChallenge != null && loginSession.LoginSession.CodeChallengeMethod != null)
+            if (loginSession.TokenRequestSession.CodeChallenge != null && loginSession.TokenRequestSession.CodeChallengeMethod != null)
             {
                 var codeVerifier = requestBody[TokenRequest.CodeVerifier];
                 if (string.IsNullOrEmpty(codeVerifier))
                     return StatusCode(400, "code challenge is included in authorization code request but does not have in access token request!");
 
                 var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.WithSHA265());
-                if (!code_challenge.Equals(loginSession.LoginSession.CodeChallenge))
+                if (!code_challenge.Equals(loginSession.TokenRequestSession.CodeChallenge))
                     return StatusCode(400, "code verifier is wrong!");
             }
 
-            if (loginSession.LoginSession.IsInLoginSession)
+            if (loginSession.TokenRequestSession.IsInLoginSession)
             {
                 var user = _userDbServices.GetUserWithTokenResponse(loginSession.User.UserName);
                 // TODO: get all login session belong to user with a particular client, but not other client
                 var latestLoginSession = user.LoginSessionsWithResponse
-                    .Where(l => l.LoginSession != null && l.LoginSession.Client.ClientId == clientId && l.TokenResponse != null)
+                    .Where(l => l.TokenRequestSession != null && l.TokenRequestSession.Client.ClientId == clientId && l.TokenResponse != null)
                     .LastOrDefault();
                 // TODO: at this step, need to check offline_access is inside authrization login request is true or fault
                 //     : if fault, then response will not include refresh token
@@ -514,8 +526,8 @@ namespace IssuerOfClaims.Controllers
                 if (latestLoginSession != null)
                 {
                     //var tokenResponse = _loginSessionManager.CreateTokenResponse(latestLoginSession);
-                    var id_token = GenerateIdToken(user, loginSession.LoginSession.Scope, loginSession.LoginSession.Nonce, client);
-                    bool isOfflineAccess = loginSession.LoginSession.IsOfflineAccess;
+                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client);
+                    bool isOfflineAccess = loginSession.TokenRequestSession.IsOfflineAccess;
                     if (isOfflineAccess)
                     {
                         // TODO: latest token response does not have refresh token
@@ -661,7 +673,7 @@ namespace IssuerOfClaims.Controllers
                         }
                     }
 
-                    loginSession.LoginSession.IsInLoginSession = false;
+                    loginSession.TokenRequestSession.IsInLoginSession = false;
                     _loginSessionManager.UpdateInsideTokenResponse(loginSession);
                     _loginSessionManager.UpdateLoginSessionWithRelation(loginSession);
 
@@ -669,9 +681,9 @@ namespace IssuerOfClaims.Controllers
                 }
                 else if (loginSession.TokenResponse == null)
                 {
-                    bool isOfflineAccess = loginSession.LoginSession.IsOfflineAccess;
+                    bool isOfflineAccess = loginSession.TokenRequestSession.IsOfflineAccess;
                     var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                    var id_token = GenerateIdToken(user, loginSession.LoginSession.Scope, loginSession.LoginSession.Nonce, client);
+                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client);
                     string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
                     tokenResponse.AccessToken = access_token;
                     tokenResponse.IdToken = id_token;
@@ -692,7 +704,7 @@ namespace IssuerOfClaims.Controllers
 
                     loginSession.TokenResponse = tokenResponse;
 
-                    loginSession.LoginSession.IsInLoginSession = false;
+                    loginSession.TokenRequestSession.IsInLoginSession = false;
 
                     // TODO: will check later
                     _loginSessionManager.UpdateInsideTokenResponse(loginSession);
@@ -760,7 +772,7 @@ namespace IssuerOfClaims.Controllers
                 //family_name = "Doe",
                 //preferred_username = "j.doe",
                 email = user.Email,
-                email_confirmed = user.EmailConfirmed,
+                email_confirmed = user.IsEmailConfirmed,
                 picture = user.Avatar
             };
 
@@ -1045,18 +1057,40 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
-        public async Task<ActionResult> RegisterUser(string state)
+        public async Task<ActionResult> RegisterUser(string[] queryString,string state, string scope, string nonce, string redirectUri, string clientId)
         {
             try
             {
                 var headers = HttpContext.Request.Headers;
+
+                // TODO: get user information from query string
+                Dictionary<string, string> queries = new Dictionary<string, string>();
+                queryString.ToList().ForEach(q =>
+                {
+                    var temp = q.Split("=");
+                    queries.Add(temp[0], temp[1]);
+                });
+
                 if (headers["Register"][0] == null)
                     return StatusCode(400, "Register header is missing!");
 
+                string email = queries["email"];
+                // TODO: for vietnamese text
+                string name = HttpUtility.UrlDecode(queries["name"]);
+                string fullName = HttpUtility.UrlDecode(queries["fullname"]);
+                string gender = queries["gender"];
+
+                // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
+                //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
+                scope = System.Uri.UnescapeDataString(scope);
+                if (string.IsNullOrEmpty(scope))
+                    return StatusCode(400, "scope is empty!");
+                // TODO: nonce is optional, so may be string.empty
+
                 var userCredentials = headers["Register"][0];
-                string email = headers["Email"];
-                string name = HttpUtility.UrlDecode(headers["Name"]);
-                string fullName = HttpUtility.UrlDecode(headers["FullName"]);
+                //string email = headers["Email"];
+                //string name = HttpUtility.UrlDecode(headers["Name"]);
+                //string fullName = HttpUtility.UrlDecode(headers["FullName"]);
                 //var roles = headers["Roles"].ToString().Split(",");
                 var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
 
@@ -1080,7 +1114,7 @@ namespace IssuerOfClaims.Controllers
                 //        return StatusCode(409, "email can only be used for one account!");
                 //}                
 
-                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email);
+                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
 
                 //_userManager.p
                 // TODO
@@ -1088,23 +1122,20 @@ namespace IssuerOfClaims.Controllers
                 //var result = _userDbServices.Create(user);
                 if (result.Succeeded)
                 {
-                    if (!string.IsNullOrEmpty(name))
-                        user.Name = name;
-                    if (!string.IsNullOrEmpty(fullName))
-                        user.FullName = fullName;
-                    else 
-                        user.FullName = user.Name;
+                    //var sr = _userManager.UpdateAsync(user).Result;
 
-                    var sr = _userManager.UpdateAsync(user).Result;
+                    // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
+                    var client = _clientDbServices.GetById(clientId);
+                    var id_token = GenerateIdToken(user, scope, nonce, client);
 
-                    //    $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
                     if (!string.IsNullOrEmpty(user.Email))
                         await SendVerifyingEmail(user);
 
                     object responseBody = new
                     {
                         status = 200,
-                        message = "new user is created!"
+                        message = "new user is created!",
+                        id_token = id_token
                     };
                     if (!string.IsNullOrEmpty(state))
                     {
@@ -1112,7 +1143,8 @@ namespace IssuerOfClaims.Controllers
                         {
                             status = 200,
                             message = "new user is created!",
-                            state = state
+                            state = state,
+                            id_token = id_token
                         };
                     }
 
@@ -1142,7 +1174,7 @@ namespace IssuerOfClaims.Controllers
             // TODO: will check again
             if (user == null)
                 return StatusCode(500, "error!");
-            if (user.EmailConfirmed == true)
+            if (user.IsEmailConfirmed == true)
                 return StatusCode(400, "user's email is already confirmed!");
 
             return await SendVerifyingEmail(user);
@@ -1167,6 +1199,7 @@ namespace IssuerOfClaims.Controllers
             email.To.Add(new MailboxAddress(user.UserName, user.Email));
 
             email.Subject = "Testing out email sending";
+            // $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
             email.Body = new TextPart(MimeKit.Text.TextFormat.Html)
             {
                 //Text = $"<b>Hello all the way from the land of C# {callbackUrl}</b>"

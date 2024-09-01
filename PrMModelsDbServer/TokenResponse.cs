@@ -29,8 +29,8 @@ namespace PrMDbModels
         /// </summary>
         public DateTime? RefreshTokenExpiried { get; set; } = null;
 
-        [ForeignKey("LoginSessionWithResponseId")]
-        public int? LoginSessionWithResponseId { get; set; }
-        public LoginSessionWithResponse? LoginSessionWithResponse { get; set; }
+        [ForeignKey("TokenRequestHandlerId")]
+        public int? TokenRequestHandlerId { get; set; }
+        public TokenRequestHandler? TokenRequestHandler { get; set; }
     }
 }

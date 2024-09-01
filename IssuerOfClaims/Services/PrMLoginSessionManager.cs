@@ -7,28 +7,28 @@ namespace IssuerOfClaims.Services
     {
         // TODO: save current is 
         //private static List<LoginSessionWithResponse> _loginSession;
-        private ILoginSessionWithResponseDbServices _loginServices;
+        private ITokenRequestHandlerDbServices _loginServices;
         private ITokenResponseDbServices _tokenResponseServices;
-        private IPrMRequiredLoginSessionDbServices _loginSessionServices;
+        private ITokenRequestSessionDbServices _loginSessionServices;
 
         static PrMLoginSessionManager()
         {
             //_loginSession = new List<LoginSessionWithResponse>();
         }
 
-        public PrMLoginSessionManager(ILoginSessionWithResponseDbServices loginServices, ITokenResponseDbServices tokenResponseServices, IPrMRequiredLoginSessionDbServices requiredLoginSessionDbServices)
+        public PrMLoginSessionManager(ITokenRequestHandlerDbServices loginServices, ITokenResponseDbServices tokenResponseServices, ITokenRequestSessionDbServices requiredLoginSessionDbServices)
         {
             _loginServices = loginServices;
             _tokenResponseServices = tokenResponseServices;
             _loginSessionServices = requiredLoginSessionDbServices;
         }
 
-        public LoginSessionWithResponse CreateUserLoginSession(PrMUser user, PrMClient client)
+        public TokenRequestHandler CreateUserLoginSession(PrMUser user, PrMClient client)
         {
-            var newObj = new LoginSessionWithResponse()
+            var newObj = new TokenRequestHandler()
             {
                 User = user,
-                LoginSession = new PrMRequiredLoginSession()
+                TokenRequestSession = new TokenRequestSession()
                 {
                     Client = client
                 }
@@ -39,18 +39,18 @@ namespace IssuerOfClaims.Services
             return newObj;
         }
 
-        public LoginSessionWithResponse FindByAuthorizationCode(string authorizationCode)
+        public TokenRequestHandler FindByAuthorizationCode(string authorizationCode)
         {
             var obj = _loginServices.FindLoginSessionWithAuthorizationCode(authorizationCode);
 
             return obj;
         }
 
-        public bool WhenLoginComplete(LoginSessionWithResponse session)
+        public bool WhenLoginComplete(TokenRequestHandler session)
         {
             try
             {
-                session.LoginSession.IsInLoginSession = false;
+                session.TokenRequestSession.IsInLoginSession = false;
                 _loginServices.Update(session);
 
                 //_loginSession.Remove(session);
@@ -62,25 +62,25 @@ namespace IssuerOfClaims.Services
             return true;
         }
 
-        public bool UpdateLoginSessionWithRelation(LoginSessionWithResponse session)
+        public bool UpdateLoginSessionWithRelation(TokenRequestHandler session)
         {
             if (session.TokenResponse != null)
             {
                 _tokenResponseServices.Update(session.TokenResponse);
             }
-            if (session.LoginSession != null)
+            if (session.TokenRequestSession != null)
             {
-                _loginSessionServices.Update(session.LoginSession);
+                _loginSessionServices.Update(session.TokenRequestSession);
             }
 
             return _loginServices.Update(session);
         }
 
-        public TokenResponse CreateTokenResponse(LoginSessionWithResponse session)
+        public TokenResponse CreateTokenResponse(TokenRequestHandler session)
         {
             var obj = new TokenResponse()
             {
-                LoginSessionWithResponse = session,
+                TokenRequestHandler = session,
             };
 
             _tokenResponseServices.Create(obj);
@@ -89,7 +89,7 @@ namespace IssuerOfClaims.Services
             return obj;
         }
 
-        public bool UpdateInsideTokenResponse(LoginSessionWithResponse session)
+        public bool UpdateInsideTokenResponse(TokenRequestHandler session)
         {
             if (session.TokenResponse != null)
             {
@@ -99,14 +99,14 @@ namespace IssuerOfClaims.Services
             return false;
         }
 
-        public LoginSessionWithResponse FindByAccessToken(string accessToken)
+        public TokenRequestHandler FindByAccessToken(string accessToken)
         {
             var session = _loginServices.FindByAccessToken(accessToken);
 
             return session;
         }
 
-        public LoginSessionWithResponse FindByRefreshToken(string refreshToken)
+        public TokenRequestHandler FindByRefreshToken(string refreshToken)
         {
             var session = _loginServices.FindByRefreshToken(refreshToken);
 
@@ -128,13 +128,13 @@ namespace IssuerOfClaims.Services
 
     public interface IPrMLoginSessionManager
     {
-        TokenResponse CreateTokenResponse(LoginSessionWithResponse loginSession);
-        LoginSessionWithResponse CreateUserLoginSession(PrMUser user, PrMClient client);
-        LoginSessionWithResponse FindByAuthorizationCode(string authorizationCode);
-        LoginSessionWithResponse FindByAccessToken(string accessToken);
-        LoginSessionWithResponse FindByRefreshToken(string refreshToken);
-        bool UpdateLoginSessionWithRelation(LoginSessionWithResponse session);
-        bool UpdateInsideTokenResponse(LoginSessionWithResponse session);
-        bool WhenLoginComplete(LoginSessionWithResponse session);
+        TokenResponse CreateTokenResponse(TokenRequestHandler loginSession);
+        TokenRequestHandler CreateUserLoginSession(PrMUser user, PrMClient client);
+        TokenRequestHandler FindByAuthorizationCode(string authorizationCode);
+        TokenRequestHandler FindByAccessToken(string accessToken);
+        TokenRequestHandler FindByRefreshToken(string refreshToken);
+        bool UpdateLoginSessionWithRelation(TokenRequestHandler session);
+        bool UpdateInsideTokenResponse(TokenRequestHandler session);
+        bool WhenLoginComplete(TokenRequestHandler session);
     }
 }

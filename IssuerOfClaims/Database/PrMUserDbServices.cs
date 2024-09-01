@@ -66,7 +66,7 @@ namespace IssuerOfClaims.Database
             var user = _PrMUsers
                 .Include(u => u.PrMIdentityUserRoles).ThenInclude(p => p.Role)
                 .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
-                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.LoginSession)
+                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenRequestSession)
                 .Include(u => u.ConfirmEmail)
                 .FirstOrDefault(user => user.UserName.Equals(userName));
 
@@ -81,14 +81,16 @@ namespace IssuerOfClaims.Database
             return user;
         }
 
-        public PrMUser InitiateUserWithRoles(string userName, string[] roles, string email = "")
+        public PrMUser InitiateUserWithRoles(string userName, string[] roles, string email = "", string name = "", string fullname = "", string gender = "")
         {
             var user = new PrMUser()
             {
                 UserName = userName,
-                //PasswordHash = password,
                 PasswordHashSalt = "",
-                Email = email
+                Email = email,
+                Name = name,
+                FullName = fullname,
+                Gender = gender
             };
             user.PrMIdentityUserRoles = roles.Select(roleName => new PrMIdentityUserRole()
             {
@@ -104,7 +106,7 @@ namespace IssuerOfClaims.Database
             var users = _PrMUsers
                 .Include(u => u.PrMIdentityUserRoles).ThenInclude(p => p.Role)
                 .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
-                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.LoginSession)
+                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenRequestSession)
                 .Include(u => u.ConfirmEmail).ToList();
 
             return users;
@@ -115,7 +117,7 @@ namespace IssuerOfClaims.Database
             var user = _PrMUsers
                 .Include(user => user.PrMIdentityUserRoles).ThenInclude(p => p.Role)
                 .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
-                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.LoginSession)
+                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenRequestSession)
                 .Include(u => u.ConfirmEmail)
                 .First(user => user.Id.Equals(id));
 
@@ -125,7 +127,7 @@ namespace IssuerOfClaims.Database
         public PrMUser GetUserWithTokenResponse(string userName)
         {
             var user = _PrMUsers
-                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.LoginSession)
+                .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenRequestSession)
                 .Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
                 .Include(u => u.ConfirmEmail)
                 .First(user => user.UserName.Equals(userName));
@@ -142,7 +144,7 @@ namespace IssuerOfClaims.Database
         PrMUser GetUserWithRelation(string userName);
         PrMUser GetUserWithTokenResponse(string userName);
         PrMUser GetUserWithRelation(int id);
-        PrMUser InitiateUserWithRoles(string userName, string[] roles, string email = "");
+        PrMUser InitiateUserWithRoles(string userName, string[] roles, string email = "", string name = "", string fullname = "", string gender = "");
         List<PrMUser> GetAllUsersIncludeRelation();
     }
 }

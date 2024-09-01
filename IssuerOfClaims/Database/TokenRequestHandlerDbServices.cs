@@ -4,58 +4,58 @@ using PrMDbModels;
 
 namespace IssuerOfClaims.Database
 {
-    public class LoginSessionWithResponseDbServices : DbTableBase<LoginSessionWithResponse>, ILoginSessionWithResponseDbServices
+    public class TokenRequestHandlerDbServices : DbTableBase<TokenRequestHandler>, ITokenRequestHandlerDbServices
     {
         //private readonly ILoginSessionWithResponseDbServices _loginSessionDbServices;
-        private readonly DbSet<LoginSessionWithResponse> _loginSession;
+        private readonly DbSet<TokenRequestHandler> _loginSession;
 
-        public LoginSessionWithResponseDbServices(IPrMAuthenticationContext dbContext) : base(dbContext)
+        public TokenRequestHandlerDbServices(IPrMAuthenticationContext dbContext) : base(dbContext)
         {
             //_loginSessionDbServices = loginSessionDbServices;
             _loginSession = this._DbModels;
         }
 
-        public LoginSessionWithResponse FindByAccessToken(string accessToken)
+        public TokenRequestHandler FindByAccessToken(string accessToken)
         {
             var obj = _loginSession
                 .Include(l => l.User)
                 .Include(l => l.TokenResponse)
-                .Include(l => l.LoginSession)
+                .Include(l => l.TokenRequestSession)
                 .Include(l => l.TokenExternal)
                 .FirstOrDefault(l => l.TokenResponse.AccessToken.Equals(accessToken));
 
             return obj;
         }
 
-        public LoginSessionWithResponse FindByRefreshToken(string refreshToken)
+        public TokenRequestHandler FindByRefreshToken(string refreshToken)
         {
             var obj = _loginSession
                 .Include(l => l.User)
                 .Include(l => l.TokenResponse)
-                .Include(l => l.LoginSession)
+                .Include(l => l.TokenRequestSession)
                 .Include(l => l.TokenExternal)
                 .FirstOrDefault(l => l.TokenResponse.RefreshToken.Equals(refreshToken));
 
             return obj;
         }
 
-        public LoginSessionWithResponse FindLoginSessionWithAuthorizationCode(string authorizationCode)
+        public TokenRequestHandler FindLoginSessionWithAuthorizationCode(string authorizationCode)
         {
             var obj = _loginSession
                 .Include(l => l.User)
                 .Include(l => l.TokenResponse)
-                .Include(l => l.LoginSession)
+                .Include(l => l.TokenRequestSession)
                 .Include(l => l.TokenExternal)
-                .FirstOrDefault(l => l.LoginSession.AuthorizationCode.Equals(authorizationCode));
+                .FirstOrDefault(l => l.TokenRequestSession.AuthorizationCode.Equals(authorizationCode));
 
             return obj;
         }
     }
 
-    public interface ILoginSessionWithResponseDbServices : IDbContextBase<LoginSessionWithResponse>
+    public interface ITokenRequestHandlerDbServices : IDbContextBase<TokenRequestHandler>
     {
-        LoginSessionWithResponse FindByAccessToken(string accessToken);
-        LoginSessionWithResponse FindByRefreshToken(string refreshToken);
-        LoginSessionWithResponse FindLoginSessionWithAuthorizationCode(string authorizationCode);
+        TokenRequestHandler FindByAccessToken(string accessToken);
+        TokenRequestHandler FindByRefreshToken(string refreshToken);
+        TokenRequestHandler FindLoginSessionWithAuthorizationCode(string authorizationCode);
     }
 }

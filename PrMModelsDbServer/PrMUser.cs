@@ -24,7 +24,6 @@ namespace PrMDbModels
         public string? FullName { get; set; } = string.Empty;
         public string? Name { get; set; } = string.Empty;
         public string? Gender { get; set; } = string.Empty;
-        //public string? Picture { get; set;} = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;
         public string? Avatar { get; set; } = string.Empty;
         public bool IsEmailConfirmed { get; set; } = false;
@@ -46,7 +45,7 @@ namespace PrMDbModels
         //public bool IsOfflineAccess { get; set; } = true;
         public ConfirmEmail? ConfirmEmail { get; set; } = null;
         public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
-        public List<LoginSessionWithResponse> LoginSessionsWithResponse { get; set; } = new List<LoginSessionWithResponse>();
+        public List<TokenRequestHandler> LoginSessionsWithResponse { get; set; } = new List<TokenRequestHandler>();
 
         public PrMUser()
         {

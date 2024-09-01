@@ -34,7 +34,7 @@ namespace PrMDbModels
         public string FrontChannelLogoutUri { get; set; }
         public string AllowedScopes { get; set; }
         public string AuthProviderX509CertUrl { get; set; }
-        public List<PrMRequiredLoginSession> LoginSessions { get; set; } = new List<PrMRequiredLoginSession>();
+        public List<TokenRequestSession> LoginSessions { get; set; } = new List<TokenRequestSession>();
 
         public PrMClient()
         {

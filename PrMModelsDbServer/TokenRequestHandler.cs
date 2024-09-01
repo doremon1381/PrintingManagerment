@@ -9,12 +9,12 @@ using System.Threading.Tasks;
 namespace PrMDbModels
 {
 
-    [Table("LoginSessionWithResponses")]
+    [Table("TokenRequestHandlers")]
     [PrimaryKey(nameof(Id))]
-    public class LoginSessionWithResponse : ModelBase
+    public class TokenRequestHandler : ModelBase
     {
         //public int? LoginSessionId { get; set; }
-        public PrMRequiredLoginSession? LoginSession { get; set; }
+        public TokenRequestSession? TokenRequestSession { get; set; }
 
         public int? UserId { get; set; }
         public PrMUser User { get; set; }

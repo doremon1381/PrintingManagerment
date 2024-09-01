@@ -20,8 +20,8 @@ namespace IssuerOfClaims.Database
         public DbSet<PrMClient> PrMClients { get; set; }
         public DbSet<ConfirmEmail> ConfirmEmails { get; set; }
         public DbSet<TokenExternal> TokenExternals { get; set; }
-        public DbSet<PrMRequiredLoginSession> PrMRequiredLoginSessions { get; set; }
-        public DbSet<LoginSessionWithResponse> LoginSessionWithResponses { get; set; }
+        public DbSet<TokenRequestSession> PrMRequiredLoginSessions { get; set; }
+        public DbSet<TokenRequestHandler> LoginSessionWithResponses { get; set; }
         public DbSet<TokenResponse> TokenResponses { get; set; }
         #endregion
 
@@ -102,20 +102,20 @@ namespace IssuerOfClaims.Database
                 .WithOne(l => l.Client)
                 .HasForeignKey(c => c.ClientId);
 
-            modelBuilder.Entity<LoginSessionWithResponse>()
-                .HasOne(c => c.LoginSession)
-                .WithOne(l => l.LoginSessionWithResponse)
-                .HasForeignKey<PrMRequiredLoginSession>(l => l.LoginSessionWithResponseId);
+            modelBuilder.Entity<TokenRequestHandler>()
+                .HasOne(c => c.TokenRequestSession)
+                .WithOne(l => l.TokenRequestHandler)
+                .HasForeignKey<TokenRequestSession>(l => l.TokenRequestHandlerId);
 
-            modelBuilder.Entity<LoginSessionWithResponse>()
+            modelBuilder.Entity<TokenRequestHandler>()
                 .HasOne(c => c.TokenResponse)
-                .WithOne(t => t.LoginSessionWithResponse)
-                .HasForeignKey<TokenResponse>(t => t.LoginSessionWithResponseId);
+                .WithOne(t => t.TokenRequestHandler)
+                .HasForeignKey<TokenResponse>(t => t.TokenRequestHandlerId);
 
-            modelBuilder.Entity<LoginSessionWithResponse>()
+            modelBuilder.Entity<TokenRequestHandler>()
                 .HasOne(c => c.TokenExternal)
-                .WithOne(t => t.LoginSessionWithResponse)
-                .HasForeignKey<TokenExternal>(t => t.LoginSessionWithResponseId);
+                .WithOne(t => t.TokenRequestHandler)
+                .HasForeignKey<TokenExternal>(t => t.TokenRequestHandlerId);
 
             base.OnModelCreating(modelBuilder);
         }

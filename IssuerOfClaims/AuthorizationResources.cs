@@ -34,7 +34,7 @@ namespace IssuerOfClaims
                 printingManagermentServer.RedirectUris = ("http://localhost:59867,http://localhost:5173/signin-oidc,https://localhost:7209/auth/callback");
                 printingManagermentServer.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentServer.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
-                printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}, offline_access";
+                printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId} {IdentityServerConstants.StandardScopes.Profile} {IdentityServerConstants.StandardScopes.Email} {Constants.CustomScope.Role} offline_access";
                 //"api1", "api2.read_only"
 
                 var printingManagermentDbServer = new PrMClient();
@@ -51,7 +51,7 @@ namespace IssuerOfClaims
                 printingManagermentWeb.RedirectUris = ("http://localhost:59867,http://localhost:5173/signin-oidc,https://localhost:7209/auth/callback");
                 printingManagermentWeb.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentWeb.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
-                printingManagermentWeb.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId},{IdentityServerConstants.StandardScopes.Profile},{IdentityServerConstants.StandardScopes.Email},{Constants.CustomScope.Role}, offline_access";
+                printingManagermentWeb.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId} {IdentityServerConstants.StandardScopes.Profile} {IdentityServerConstants.StandardScopes.Email} {Constants.CustomScope.Role} offline_access";
 
                 var newClients = new List<PrMClient>() { printingManagermentServer, printingManagermentDbServer, printingManagermentWeb };
 
