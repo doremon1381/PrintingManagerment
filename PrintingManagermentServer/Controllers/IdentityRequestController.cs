@@ -15,6 +15,7 @@ using Newtonsoft.Json.Linq;
 using PrintingManagermentServer.Models;
 using PrMServerUltilities.Identity;
 using PrintingManagermentServer.Database;
+using Newtonsoft.Json;
 
 namespace PrintingManagermentServer.Controllers
 {
@@ -53,7 +54,7 @@ namespace PrintingManagermentServer.Controllers
 
                 // TODO: get identityserver token endpoint
                 var identityConfig = _configuration.GetSection("IdentityServer");
-                string? clientId, clientSecret, redirectUri, tokenEndpoint, userInfoEnpoint;
+                string clientId, clientSecret, redirectUri, tokenEndpoint, userInfoEnpoint;
 
                 ConfigurationValidate(identityConfig, out clientId, out clientSecret, out redirectUri, out tokenEndpoint, out userInfoEnpoint);
 
@@ -61,38 +62,18 @@ namespace PrintingManagermentServer.Controllers
 
                 // TODO: at this step, get a draft of login session in session manager, which has client_state as same as incoming client_state from user-agent
                 queryString.GetFromQueryString(TokenRequest.Code, out string code);
+                if (string.IsNullOrEmpty(code))
+                    return StatusCode(400, "authorization code is missing!");
                 // TODO: instead of using client_state, use nonce for determining this response is for what login session 
                 queryString.GetFromQueryString("client_state", out string clientState);
+                if (string.IsNullOrEmpty(clientState))
+                    return StatusCode(400, "client state is missing!");
 
                 var loginDraft = _loginSessionManager.GetDraftFromState(clientState);
-                string codeVerifier = loginDraft.LoginSession.CodeVerifier;
+                if (loginDraft == null)
+                    return StatusCode(500, "error with client state, dunno why...");
 
-                string tokenEndpointBody = string.Format("code={0}&client_id={1}&client_secret={2}&audience={3}&grant_type=authorization_code&redirect_uri={4}&code_verifier={5}&state={6}&scope="
-                    , code, clientId, clientSecret, "http://localhost:7209", redirectUri, codeVerifier, currentState);
-
-                // TODO: send to identityserver to get id token and access token
-                HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(tokenEndpoint);
-                tokenRequest.Method = "POST";
-                tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*;q=0.8";
-                byte[] _byteVersion = Encoding.ASCII.GetBytes(tokenEndpointBody);
-                tokenRequest.ContentLength = _byteVersion.Length;
-                Stream stream = tokenRequest.GetRequestStream();
-                await stream.WriteAsync(_byteVersion, 0, _byteVersion.Length);
-                stream.Close();
-
-                // TODO:  exchange for user_info
-                //     : check in web db user token by user name or email
-                //     : if do not have one, create one for new user_info
-                //     : save loginSession draft - save session that was success
-
-                string responseText = "";
-
-                WebResponse serverResponse = await tokenRequest.GetResponseAsync();
-                using (StreamReader reader = new StreamReader(serverResponse.GetResponseStream()))
-                {
-                    // reads response body
-                    responseText = await reader.ReadToEndAsync();
-                }
+                string responseText = await GetAccessTokenAndIdTokenAsync(clientId, clientSecret, redirectUri, tokenEndpoint, currentState, code, loginDraft.LoginSession.CodeVerifier);
 
                 dynamic sr = JObject.Parse(responseText);
 
@@ -101,69 +82,18 @@ namespace PrintingManagermentServer.Controllers
                 string refresh_token = sr.refresh_token;
                 string expired_in = sr.expires_in;
 
-                loginDraft.IncomingToklen = new Models.IncomingToken()
-                {
-                    AccessToken = accessToken,
-                    IdToken = id_token,
-                    RefreshToken = refresh_token,
-                    AccessTokenExpiried = DateTime.Now.AddSeconds(double.Parse(expired_in))
-                };
-
                 var handler = new JwtSecurityTokenHandler();
                 var jsonToken = handler.ReadJwtToken(id_token);
-                clientId = identityConfig.GetSection("client_id").Value;
-
-                if (jsonToken == null)
-                    return StatusCode(404, "token is wrong");
-                if (jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("aud") && c.Value.Equals(clientId)) == null)
-                {
-                    return StatusCode(404, "aud is not valid");
-                }
-                // TODO: The current time MUST be before the time represented by the exp Claim., dunno how
-                if (jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("exp")) != null)
-                {
-                    //var sr1 = DateTime.Now.;
-                    //var sr2 = DateTime.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("exp")).Value);
-                }
-                if (jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("nonce")) != null)
-                {
-                    var nonce = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("nonce")).Value;
-
-                    if (!nonce.Equals(loginDraft.LoginSession.Nonce))
-                        return StatusCode(404, "nonce is mismatch!");
-                }
-                jsonToken.Payload.Remove("nonce");
-
-                if (!TokenExtensions.VerifySignature(id_token, _configuration.GetSection("Jwt:Key").Value))
-                    return StatusCode(500, "identity token has problem!");
+                VerifyIdToken(identityConfig, clientId, loginDraft, id_token, jsonToken);
                 // TODO: use hs256 for now
                 //VerifyRsa256Signature(id_token, _configuration.GetSection("Jwt_access_token:Public_key").Value.Replace("\n",""));
-                _loginSessionManager.SaveDraft(loginDraft);
 
                 // TODO: get user info and save to db
                 var user_info = await userinfoCall(accessToken, userInfoEnpoint);
-
                 var user = _userTokenServices.FindByUsernameWithPermission(jsonToken.Payload.Sub);
-
                 if (user == null)
                 {
-                    var roles = _roleDbServices.GetAll();
-
-                    user = new UserToken()
-                    {
-                        UserName = jsonToken.Payload.Sub,
-                        Email = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Email)).Value,
-                        // TODO: comment for now
-                        //DateOfBirth = DateTime.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.BirthDate)).Value),
-                        IsEmailConfirmed = bool.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.EmailVerified)).Value),
-                        FullName = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Name)).Value,
-                        Avatar = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Picture)).Value,
-                        Permissions = new List<Permission> { new Permission() {
-                            Role = roles.FirstOrDefault(r => r.RoleName.Equals("employee")),
-                            User = user
-                        } }
-                    };
-                    _userTokenServices.Create(user);
+                    user = CreateNewUser(jsonToken, user);
                 }
 
                 var incomingToken = new PrintingManagermentServer.Models.IncomingToken()
@@ -181,6 +111,7 @@ namespace PrintingManagermentServer.Controllers
                 loginDraft.LoginSession.IsInLoginSession = false;
                 //// TODO: because user-agent will not need it
                 //jsonToken.Payload.Remove("exp");
+                _loginSessionManager.SaveDraft(loginDraft);
 
                 // TODO: token response will be add
 
@@ -202,12 +133,100 @@ namespace PrintingManagermentServer.Controllers
             }
         }
 
+        private async Task<string> GetAccessTokenAndIdTokenAsync(string clientId, string clientSecret, string redirectUri, string tokenEndpoint, string currentState, string code, string codeVerifier)
+        {
+            string tokenEndpointBody = string.Format("code={0}&client_id={1}&client_secret={2}&audience={3}&grant_type=authorization_code&redirect_uri={4}&code_verifier={5}&state={6}&scope="
+                , code, clientId, clientSecret, "http://localhost:7209", redirectUri, codeVerifier, currentState);
+
+            // TODO: send to identityserver to get id token and access token
+            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(tokenEndpoint);
+            tokenRequest.Method = "POST";
+            tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*;q=0.8";
+            byte[] _byteVersion = Encoding.ASCII.GetBytes(tokenEndpointBody);
+            tokenRequest.ContentLength = _byteVersion.Length;
+            Stream stream = tokenRequest.GetRequestStream();
+            await stream.WriteAsync(_byteVersion, 0, _byteVersion.Length);
+            stream.Close();
+
+            // TODO:  exchange for user_info
+            //     : check in web db user token by user name or email
+            //     : if do not have one, create one for new user_info
+            //     : save loginSession draft - save session that was success
+
+            string responseText = "";
+
+            WebResponse serverResponse = await tokenRequest.GetResponseAsync();
+            using (StreamReader reader = new StreamReader(serverResponse.GetResponseStream()))
+            {
+                // reads response body
+                responseText = await reader.ReadToEndAsync();
+            }
+
+            return responseText;
+        }
+
+        private UserToken CreateNewUser(JwtSecurityToken jsonToken, UserToken? user)
+        {
+            var roles = _roleDbServices.GetAll();
+
+            user = new UserToken()
+            {
+                UserName = jsonToken.Payload.Sub,
+                Email = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Email)).Value,
+                // TODO: comment for now
+                //DateOfBirth = DateTime.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.BirthDate)).Value),
+                IsEmailConfirmed = bool.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.EmailVerified)).Value),
+                FullName = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Name)).Value,
+                Avatar = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals(JwtClaimTypes.Picture)).Value,
+                Permissions = new List<Permission> { new Permission() {
+                    // TODO: by default, will change
+                    Role = roles.FirstOrDefault(r => r.RoleName.Equals("employee")),
+                    User = user
+                }}
+            };
+            _userTokenServices.Create(user);
+            return user;
+        }
+
+        private Exception VerifyIdToken(IConfigurationSection identityConfig, string clientId, LoginSessionWithToken loginDraft, string id_token, JwtSecurityToken jsonToken)
+        {
+            if (jsonToken == null)
+                return new Exception("token is wrong");
+
+            if (jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("aud") && c.Value.Equals(clientId)) == null)
+            {
+                //return StatusCode(404, "aud is not valid");
+                return new Exception("aud is not valid!");
+            }
+            // TODO: The current time MUST be before the time represented by the exp Claim., dunno how
+            if (jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("exp")) != null)
+            {
+                //var sr1 = DateTime.Now.;
+                //var sr2 = DateTime.Parse(jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("exp")).Value);
+            }
+            if (jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("nonce")) != null)
+            {
+                var nonce = jsonToken.Claims.FirstOrDefault(c => c.Type.Equals("nonce")).Value;
+
+                if (!nonce.Equals(loginDraft.LoginSession.Nonce))
+                    //return StatusCode(404, "nonce is mismatch!");
+                    return new Exception("nonce is mismatch!");
+            }
+            jsonToken.Payload.Remove("nonce");
+
+            if (!TokenExtensions.VerifySignature(id_token, _configuration.GetSection("Jwt:Key").Value))
+                //return StatusCode(500, "identity token has problem!");
+                return new Exception("identity token has problem!");
+
+            return null;
+        }
+
         public T Cast<T>(T obj, object test)
         {
             return (T)test;
         }
 
-        private Exception ConfigurationValidate(IConfigurationSection identityConfig, out string? clientId, out string? clientSecret, out string redirectUri, out string? tokenEndpoint, out string? userInfoEnpoint)
+        private Exception ConfigurationValidate(IConfigurationSection identityConfig, out string clientId, out string clientSecret, out string redirectUri, out string tokenEndpoint, out string userInfoEnpoint)
         {
             var registerUri = identityConfig.GetSection("auth_uri").Value;
             clientId = identityConfig.GetSection("client_id").Value;
@@ -257,44 +276,45 @@ namespace PrintingManagermentServer.Controllers
             return output;
         }
 
-        ///// <summary>
-        ///// TODO: callback uses for receiving id_token from identityserver and handle login base on that id_token, nothing more
-        ///// </summary>
-        ///// <returns></returns>
-        //[HttpPost("callback")]
-        //public ActionResult CallbackPost()
-        //{
-        //    var request = HttpContext.Request;
+        /// <summary>
+        /// TODO: for register new usertoken
+        /// </summary>
+        /// <returns></returns>
+        [HttpPost("callback")]
+        public ActionResult CallbackPost()
+        {
+            var request = HttpContext.Request;
 
-        //    var getForm = request.ReadFormAsync().Result;
-        //    //using (var sr = new StreamReader(Request.InputStream))
-        //    //{
-        //    //    string body = sr.ReadToEnd();
+            var getForm = request.ReadFormAsync().Result;
+            //using (var sr = new StreamReader(Request.InputStream))
+            //{
+            //    string body = sr.ReadToEnd();
 
-        //    //    // Deserialize JSON to C# object
-        //    //    // you can use some modern libs such as Newtonsoft JSON.NET instead as well
-        //    //    JavaScriptSerializer serializer = new JavaScriptSerializer();
-        //    //    Hashtable hashtable = serializer.Deserialize<Hashtable>(body);
+            //    // Deserialize JSON to C# object
+            //    // you can use some modern libs such as Newtonsoft JSON.NET instead as well
+            //    JavaScriptSerializer serializer = new JavaScriptSerializer();
+            //    Hashtable hashtable = serializer.Deserialize<Hashtable>(body);
 
-        //    //    string name = hashtable["name"].ToString();
-        //    //    string image = hashtable["image"].ToString();
-        //    //    string price = hashtable["price"].ToString();
+            //    string name = hashtable["name"].ToString();
+            //    string image = hashtable["image"].ToString();
+            //    string price = hashtable["price"].ToString();
 
-        //    //}
+            //}
 
-        //    // TODO: get authorization code, exchange it to server
+            // TODO: get authorization code, exchange it to server
 
 
-        //    //return StatusCode(200, "form_post is sent to client successfull!");
-        //    return StatusCode(200, "login success!");
-        //}
+            //return StatusCode(200, "form_post is sent to client successfull!");
+            return StatusCode(200, "login success!");
+        }
 
         //[HttpGet("register")]
-        //[Authorize]
+        ////[Authorize]
         //public async Task<ActionResult> Register()
         //{
         //    var identityConfig = _configuration.GetSection("IdentityServer");
         //    var registerUri = identityConfig.GetSection("auth_uri").Value;
+        //    // TODO: by authorization code flow, client_is must have
         //    if (string.IsNullOrEmpty(registerUri))
         //        return StatusCode(500, "server's config does not have register uri!");
         //    var clientId = identityConfig.GetSection("client_id").Value;
@@ -311,6 +331,21 @@ namespace PrintingManagermentServer.Controllers
 
         //    return StatusCode(200, responseUri);
         //}
+
+        [HttpGet("changePassword")]
+        [Authorize]
+        public async Task<ActionResult> ChangePassword()
+        {
+
+
+            var response = new
+            {
+                location = "",
+                message = "add authorize information to Authorization header and send request to location",
+            };
+
+            return StatusCode(200, JsonConvert.SerializeObject(response));
+        }
 
         /// <summary>
         /// TODO: validate at_hash from id_token is OPTIONAL in some flow,
@@ -345,7 +380,7 @@ namespace PrintingManagermentServer.Controllers
         }
 
 
-        private string GenerateJwtAcessToken(UserToken user, string nonce="")
+        private string GenerateJwtAcessToken(UserToken user, string nonce = "")
         {
             // TODO: use audience from json setting for now
             //string audience = _configuration["Jwt_access_token:Audience"];
@@ -401,7 +436,7 @@ namespace PrintingManagermentServer.Controllers
                 signingCredentials: credentials);
 
 
-             return new JwtSecurityTokenHandler().WriteToken(token);
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

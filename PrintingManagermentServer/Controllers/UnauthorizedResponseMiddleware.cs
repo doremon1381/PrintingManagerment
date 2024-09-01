@@ -11,14 +11,14 @@ namespace PrintingManagermentServer.Controllers
     /// <summary>
     /// from https://dotnettutorials.net/lesson/401-http-status-codein-asp-net-core-web-api/#:~:text=The%20HTTP%20401%20Status%20Code,to%20get%20the%20requested%20response.
     /// </summary>
-    public class PrMUnauthorizedResponseMiddleware
+    public class UnauthorizedResponseMiddleware
     {
         // Field to store the next middleware in the pipeline
         private readonly RequestDelegate _next;
         private readonly IConfigurationManager _configuration;
 
         // Constructor to initialize the middleware with the next RequestDelegate
-        public PrMUnauthorizedResponseMiddleware(RequestDelegate next, IConfigurationManager configuration)
+        public UnauthorizedResponseMiddleware(RequestDelegate next, IConfigurationManager configuration)
         {
             _next = next; // Assign the next middleware to the private field
             _configuration = configuration;
@@ -138,9 +138,9 @@ namespace PrintingManagermentServer.Controllers
         {
             context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-            context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, state");
+            context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, Register");
             context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-            context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, Location, location, Authorization");
+            context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, location, Authorization");
         }
 
 

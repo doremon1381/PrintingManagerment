@@ -93,7 +93,7 @@ namespace PrintingManagermentServer
             //app.UseCors();
 
             app.UseAuthentication();
-            app.UseMiddleware<PrMUnauthorizedResponseMiddleware>();
+            app.UseMiddleware<UnauthorizedResponseMiddleware>();
             app.UseAuthorization();
 
 
