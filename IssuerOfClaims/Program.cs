@@ -122,7 +122,7 @@ namespace IssuerOfClaims
             {
                 context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
                 context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-                context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, state");
+                context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, Register");
                 context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
                 context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, Location, location");
 

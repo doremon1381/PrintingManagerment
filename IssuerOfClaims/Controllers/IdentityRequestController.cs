@@ -100,6 +100,7 @@ namespace IssuerOfClaims.Controllers
             //    : Verify that a scope parameter is present and contains the openid scope value.
             //    : (If no openid scope value is present, the request may still be a valid OAuth 2.0 request but is not an OpenID Connect request.)
             requestQuerry.GetFromQueryString(AuthorizeRequest.Scope, out string scope);
+            scope = System.Uri.UnescapeDataString(scope);
 
             // TODO: need to compare with existing client in memory or database
             requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
@@ -294,7 +295,7 @@ namespace IssuerOfClaims.Controllers
                 scope = System.Uri.UnescapeDataString(scope);
                 // TODO: scope is used for getting claims to send to client,
                 //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-                var idToken = GenerateIdToken(user, scope, nonce, client);
+                var idToken = GenerateIdToken(user, scope, nonce, clientId);
 
                 var loginSession = _loginSessionManager.CreateUserLoginSession(user, client);
 
@@ -441,6 +442,7 @@ namespace IssuerOfClaims.Controllers
             {
                 case OidcConstants.GrantTypes.RefreshToken:
                     {
+                        // TODO: return new accesstoken using refresh token if it's not expired
                         var loginSessionWithToken = _loginSessionManager.FindByRefreshToken(grantType);
 
                         return StatusCode(500, "not implement exception!");
@@ -526,7 +528,8 @@ namespace IssuerOfClaims.Controllers
                 if (latestLoginSession != null)
                 {
                     //var tokenResponse = _loginSessionManager.CreateTokenResponse(latestLoginSession);
-                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client);
+                    //var scope = HttpUtility
+                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client.ClientId);
                     bool isOfflineAccess = loginSession.TokenRequestSession.IsOfflineAccess;
                     if (isOfflineAccess)
                     {
@@ -683,7 +686,7 @@ namespace IssuerOfClaims.Controllers
                 {
                     bool isOfflineAccess = loginSession.TokenRequestSession.IsOfflineAccess;
                     var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client);
+                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client.ClientId);
                     string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
                     tokenResponse.AccessToken = access_token;
                     tokenResponse.IdToken = id_token;
@@ -1063,22 +1066,18 @@ namespace IssuerOfClaims.Controllers
             {
                 var headers = HttpContext.Request.Headers;
 
-                // TODO: get user information from query string
-                Dictionary<string, string> queries = new Dictionary<string, string>();
-                queryString.ToList().ForEach(q =>
-                {
-                    var temp = q.Split("=");
-                    queries.Add(temp[0], temp[1]);
-                });
-
                 if (headers["Register"][0] == null)
                     return StatusCode(400, "Register header is missing!");
 
-                string email = queries["email"];
+                queryString.GetFromQueryString("email", out string email);
                 // TODO: for vietnamese text
-                string name = HttpUtility.UrlDecode(queries["name"]);
-                string fullName = HttpUtility.UrlDecode(queries["fullname"]);
-                string gender = queries["gender"];
+                queryString.GetFromQueryString("name", out string name);
+                name = HttpUtility.UrlDecode(name);
+                queryString.GetFromQueryString("fullname", out string fullName);
+                fullName = HttpUtility.UrlDecode(fullName);
+                queryString.GetFromQueryString("gender", out string gender);
+                queryString.GetFromQueryString("roles", out string roles);
+                // TODO: will add role later
 
                 // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
                 //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
@@ -1088,10 +1087,6 @@ namespace IssuerOfClaims.Controllers
                 // TODO: nonce is optional, so may be string.empty
 
                 var userCredentials = headers["Register"][0];
-                //string email = headers["Email"];
-                //string name = HttpUtility.UrlDecode(headers["Name"]);
-                //string fullName = HttpUtility.UrlDecode(headers["FullName"]);
-                //var roles = headers["Roles"].ToString().Split(",");
                 var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
 
                 // TODO: will need to validate username and password, from client and server
@@ -1101,7 +1096,6 @@ namespace IssuerOfClaims.Controllers
                 if (string.IsNullOrEmpty(password))
                     return StatusCode(400, "password is missing!");
 
-                //var hashPassword = Cast(PasswordUltilities.HashPassword(password), new { Password = "", Salt = "" });
                 var currentUser = _userDbServices.GetUserByUserName(userName);
                 if (currentUser != null)
                     return StatusCode(409, "user with this username is already exist");
@@ -1116,17 +1110,13 @@ namespace IssuerOfClaims.Controllers
 
                 var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
 
-                //_userManager.p
                 // TODO
                 var result = _userManager.CreateAsync(user, password).Result;
-                //var result = _userDbServices.Create(user);
                 if (result.Succeeded)
                 {
-                    //var sr = _userManager.UpdateAsync(user).Result;
-
                     // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
                     var client = _clientDbServices.GetById(clientId);
-                    var id_token = GenerateIdToken(user, scope, nonce, client);
+                    var id_token = GenerateIdToken(user, scope, nonce, clientId);
 
                     if (!string.IsNullOrEmpty(user.Email))
                         await SendVerifyingEmail(user);
@@ -1264,7 +1254,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="nonce"></param>
         /// <param name="client"></param>
         /// <returns></returns>
-        private string GenerateIdToken(PrMUser user, string scopeStr, string nonce, PrMClient client)
+        private string GenerateIdToken(PrMUser user, string scopeStr, string nonce, string clientid)
         {
             try
             {
@@ -1290,7 +1280,7 @@ namespace IssuerOfClaims.Controllers
                 if (scopes.Contains(IdentityServerConstants.StandardScopes.OpenId))
                 {
                     claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
-                    claims.Add(new Claim(JwtClaimTypes.Audience, client.ClientId));
+                    claims.Add(new Claim(JwtClaimTypes.Audience, clientid));
                     // TODO: hard code for now
                     claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
                 }
