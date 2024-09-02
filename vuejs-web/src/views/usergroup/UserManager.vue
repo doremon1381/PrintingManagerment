@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, defineModel, watch, nextTick } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import { mdiDelete, mdiOfficeBuilding, mdiPencil } from '@mdi/js';
-import { useAxiosGetWithAccessToken } from '@/extensions/RequestUltilities';
+import { useAxiosGetWithAccessToken, useAxiosPostWithAccessToken } from '@/extensions/RequestUltilities';
 import { useAuthStore } from '@/stores/auth';
 import { mdiMagnify } from '@mdi/js';
+import { router } from '@/router';
 
 const authStore = useAuthStore();
 const users = ref();
 
 const getUsers = computed(() : Array<User> => { return users.value; });
 const currentUsername = computed(() => { return authStore.user?.sub; });
+const isActive = ref(false);
+const errorMessage = ref();
 
 function serializeUsers(data) : Array<User>
 {
@@ -38,7 +41,10 @@ useAxiosGetWithAccessToken("/users/all", response => {
     nextTick();
 
     isLoading.value = false;
-}, () => {});
+// },()=>{}, (error) => {
+//     errorMessage.value = error.response?.data;
+//     isActive.value = true;
+});
 
 const drafUsers = ref();
 
@@ -126,6 +132,44 @@ function close () {
     })
 };
 
+function LoadProgressLine() {
+    isLoading.value = true;
+}
+
+function UnloadProgressLine() {
+    isLoading.value = false;
+}
+
+function UpdateUsers(){
+    LoadProgressLine();
+    
+    const deleted : Array<User> = drafUsers.value.filter(u => u.IsDeleted == true);
+    const modified : Array<User> = drafUsers.value.filter(u => u.IsModified == true);
+
+    let currentModified: Array<User> = [];
+    
+    console.log(modified);
+    modified.forEach(u => {
+        let s = getUsers.value.find(x => x.Username == u.Username);
+        if (s != undefined){
+            s.IsModified = true;
+            // console.log(s);
+            currentModified.push(s);
+        }
+    })
+
+    currentModified.push(...deleted);
+
+        console.log(currentModified);
+    useAxiosPostWithAccessToken('/users/update', currentModified, (response) => {
+        console.log(response);
+    }, () => {
+        router.go(0);
+    }, (error) => {
+        errorMessage.value = error.message;
+    });
+}
+
 function save () {
     if (editedIndex.value > -1) {
         //var currentRoles = getUsers.value[editedIndex.value].Roles;
@@ -145,11 +189,12 @@ function save () {
         }
 
         if (userBaseRoles.length !== getUsers.value[editedIndex.value].Roles.length){
-            getUsers.value[editedIndex.value].IsModified = true;
+            //getUsers.value[editedIndex.value].IsModified = true;
+            drafUsers.value[editedIndex.value].IsModified = true;
         }
         else {
             userBaseRoles.forEach(element => {
-                getUsers.value[editedIndex.value].IsModified = !hasEqualValue(element);
+                drafUsers.value[editedIndex.value].IsModified = !hasEqualValue(element);
             });
         }
 
@@ -175,6 +220,9 @@ function closeDelete () {
     })
 };
 function deleteItemConfirm () {
+    var currentUser = drafUsers.value.find(u => u.Username == editedItem.value.Username);
+    currentUser.IsDeleted = true;
+
     getUsers.value.splice(editedIndex.value, 1);
     closeDelete()
 };
@@ -212,6 +260,39 @@ const headers = ref([{
 
 <template>
     <div>
+        <!-- TODO: Error dialog-->
+        <v-dialog max-width="500" :isActive="isActive">
+            <!-- <template v-slot:activator="{ props: activatorProps }">
+                <v-btn
+                v-bind="activatorProps"
+                color="surface-variant"
+                text="Open Dialog"
+                variant="flat"
+                ></v-btn>
+            </template> -->
+
+            <template v-slot:default="{ isActive }">
+                <v-card title="Message">
+                <v-card-text>{{ errorMessage }}</v-card-text>
+
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn
+                    text="Close Dialog"
+                    @click="isActive.value = false"
+                    ></v-btn>
+                </v-card-actions>
+                </v-card>
+            </template>
+        </v-dialog>
+        <v-btn
+            class="ma-2"
+            color="surface-variant"
+            text="Save"
+            variant="flat"
+            v-show="!isLoading"
+            v-on:click="UpdateUsers">
+        </v-btn>
         <v-progress-linear color="cyan" indeterminate v-if="isLoading"></v-progress-linear>
         <v-card v-else flat>
             <template v-slot:text>
@@ -225,11 +306,11 @@ const headers = ref([{
                 ></v-text-field>
             </template>
             <v-data-table
-            :headers="headers"
-            :search="search"
-            :items="getUsers"
-            :page="page"
-            :items-per-page="itemPerPage">
+                :headers="headers"
+                :search="search"
+                :items="getUsers"
+                :page="page"
+                :items-per-page="itemPerPage">
             <template v-slot:top>
                 <v-dialog v-model="dialog" max-width="500px">
                     <v-card>

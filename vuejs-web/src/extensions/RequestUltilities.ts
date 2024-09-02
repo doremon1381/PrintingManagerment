@@ -1,16 +1,17 @@
 import { router } from "@/router";
 import { useAuthStore } from "@/stores/auth";
 //import { useAuthStore } from "@/stores/auth";
-import axios, { type AxiosResponse, type RawAxiosRequestHeaders } from "axios";
+import axios, { AxiosError, type AxiosResponse, type RawAxiosRequestHeaders } from "axios";
 //import AxiosResponse from "axios";
 import { ref } from "vue";
 
 // authInfo = useAuthStore();
 type NX = (value: void) => void;
 type HR = (value: AxiosResponse) => void;
+type ER = (value: AxiosError) => void
 const webServerTestRequest = ref("https://localhost:7209");
 
-function useAxiosGet(uri: string, handleResponse: HR, nextRequest?: NX)
+function useAxiosGet(uri: string, handleResponse: HR, nextRequest?: NX, errorHandler?: NX)
 {
    const data = ref(null);
 
@@ -18,8 +19,12 @@ function useAxiosGet(uri: string, handleResponse: HR, nextRequest?: NX)
        //data.value = response.data;
        handleResponse(response);
    }).catch(error => {
-       console.log(error);
-       // TODO: if 401, use router to redirect
+       //console.log(error);
+       if (errorHandler != undefined)
+            errorHandler(error);
+        // TODO: if 401, use router to redirect
+        if (error.status == 401)
+                router.push('/auth/login')
    }).then(()=> {
         if (nextRequest != undefined)
             nextRequest();
@@ -28,7 +33,7 @@ function useAxiosGet(uri: string, handleResponse: HR, nextRequest?: NX)
    return data;
 }
 
-function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, handleResponse: HR, nextRequest?: NX)
+function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, handleResponse: HR, nextRequest?: NX, errorHandler?: NX)
 {
    //const data = ref(null);
 
@@ -38,8 +43,12 @@ function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, ha
        //data.value = response.data;
        handleResponse(response);
    }).catch(error => {
-       console.log(error);
+       //console.log(error);
+       if (errorHandler != undefined)
+            errorHandler(error);
        // TODO: if 401, use router to redirect
+       if (error.status == 401)
+            router.push('/auth/login')
    }).then(()=> {
     if (nextRequest != undefined)
         nextRequest();
@@ -48,7 +57,7 @@ function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, ha
    //return data;
 }
 
-function useAxiosGetWithAccessToken(api: string, handleResponse: HR, nextRequest: NX)
+function useAxiosGetWithAccessToken(api: string, handleResponse: HR, nextRequest?: NX, errorHandler?: ER)
 {
    const data = useAuthStore();
 
@@ -60,15 +69,40 @@ function useAxiosGetWithAccessToken(api: string, handleResponse: HR, nextRequest
        //data.value = response.data;
        handleResponse(response);
    }).catch(error => {
-       console.log(error);
-       // TODO: if 401, use router to redirect
-       if (error.response.status === 401)
-       {
-            router.push('/auth/login');
-       }
+    if (errorHandler != undefined)
+        errorHandler(error);
+   // TODO: if 401, use router to redirect
+   if (error.status == 401)
+        router.push('/auth/login')
    }).then(()=> {
-       nextRequest();
+    if (nextRequest != undefined)
+        nextRequest();
    });
 }
 
- export { useAxiosGet, useAxiosGetWithHeaders, useAxiosGetWithAccessToken, webServerTestRequest };
+function useAxiosPostWithAccessToken(api: string, requestBody, handleResponse: HR, nextRequest?: NX, errorHandler?: ER)
+{
+    const data = useAuthStore();
+
+    axios.post(webServerTestRequest.value + api, {
+        users: requestBody
+    }, {
+     headers:{
+         Authorization: "Bearer " + data.user.access_token
+     }
+    }).then(response => {
+        //data.value = response.data;
+        handleResponse(response);
+    }).catch(error => {
+     if (errorHandler != undefined)
+         errorHandler(error);
+    // TODO: if 401, use router to redirect
+    if (error.status == 401)
+         router.push('/auth/login')
+    }).then(()=> {
+     if (nextRequest != undefined)
+         nextRequest();
+    });
+}
+
+ export { useAxiosGet, useAxiosGetWithHeaders, useAxiosGetWithAccessToken, useAxiosPostWithAccessToken, webServerTestRequest };
