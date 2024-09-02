@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using System;
 using IssuerOfClaims.Database.Model;
+using Microsoft.EntityFrameworkCore;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -39,7 +40,7 @@ namespace IssuerOfClaims.Controllers
     public class IdentityRequestController : ControllerBase
     {
         private readonly ILogger<IdentityRequestController> _logger;
-        private readonly IPrMUserDbServices _userDbServices;
+        //private readonly IPrMUserDbServices _userDbServices;
 
         private readonly UserManager<PrMUser> _userManager;
         private readonly IConfigurationManager _configuration;
@@ -47,16 +48,18 @@ namespace IssuerOfClaims.Controllers
         private readonly MailSettings _mailSettings;
         private readonly IPrMLoginSessionManager _loginSessionManager;
         private readonly IPrMClientDbServices _clientDbServices;
+        private readonly IPrMRoleDbServices _roleDbServices;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
-            , IPrMUserDbServices userDbServices, UserManager<PrMUser> userManager, IPrMLoginSessionManager loginSessionManager
-            , IConfirmEmailDbServices emailDbServices, MailSettings mailSettings, IPrMClientDbServices clientDbServices)
+            , UserManager<PrMUser> userManager, IPrMLoginSessionManager loginSessionManager
+            , IConfirmEmailDbServices emailDbServices, MailSettings mailSettings, IPrMClientDbServices clientDbServices, IPrMRoleDbServices roleDbServices)
         {
             _logger = logger;
             _configuration = configuration;
             //_httpClientFactory = httpClientFactory;
 
-            _userDbServices = userDbServices;
+            //_userDbServices = userDbServices;
+            _roleDbServices = roleDbServices;
             _userManager = userManager;
             _emailDbServices = emailDbServices;
             _mailSettings = mailSettings;
@@ -331,7 +334,8 @@ namespace IssuerOfClaims.Controllers
 
             if (loginSession.TokenRequestSession.IsInLoginSession)
             {
-                var user = _userDbServices.GetUserWithTokenResponse(loginSession.User.UserName);
+                //var user = _userDbServices.GetUserWithTokenResponse(loginSession.User.UserName);
+                var user = _userManager.Users.Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse).FirstOrDefault(u => u.UserName == loginSession.User.UserName);
                 // TODO: get all login session belong to user with a particular client, but not other client
                 var latestLoginSession = user.LoginSessionsWithResponse
                     .Where(l => l.TokenRequestSession != null && l.TokenRequestSession.Client.ClientId == clientId && l.TokenResponse != null)
@@ -605,7 +609,8 @@ namespace IssuerOfClaims.Controllers
                 if (string.IsNullOrEmpty(password))
                     return StatusCode(400, "password is missing!");
 
-                var currentUser = _userDbServices.GetUserByUserName(userName);
+                //var currentUser = _userDbServices.GetUserByUserName(userName);
+                var currentUser = _userManager.Users.FirstOrDefault(u => u.UserName == userName);
                 if (currentUser != null)
                     return StatusCode(409, "user with this username is already exist");
 
@@ -617,12 +622,23 @@ namespace IssuerOfClaims.Controllers
                 //        return StatusCode(409, "email can only be used for one account!");
                 //}                
 
-                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
+                //var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
+                var result = _userManager.CreateAsync(new PrMUser()
+                {
+                    UserName = userName,
+                    PasswordHashSalt = "",
+                    Email = email,
+                    Name = name,
+                    FullName = fullName,
+                    Gender = gender
+                }, password).Result;
 
                 // TODO
-                var result = _userManager.CreateAsync(user, password).Result;
+                //var result = _userManager.CreateAsync(user, password).Result;
                 if (result.Succeeded)
                 {
+                    var user = _userManager.Users
+                        .FirstOrDefault(u => u.UserName == userName);
                     // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
                     var client = _clientDbServices.GetById(clientId);
                     var id_token = GenerateIdToken(user, scope, nonce, clientId);
@@ -948,21 +964,23 @@ namespace IssuerOfClaims.Controllers
                 var code = query["code"];
 
                 // TODO:
-                //var user = _userDbServices.GetUserWithRelation(userId);
-                ////var user = _userDbServices.GetUserIncludeConfirmEmail(userId);
-                //if (!user.ConfirmEmail.ConfirmCode.Equals(code))
-                //    return StatusCode(404, "Confirm code is not match!");
-                //if (!(user.ConfirmEmail.ExpiryTime > DateTime.Now))
-                //    return StatusCode(400, "Confirm code is expired!");
-                //if (user.ConfirmEmail.IsConfirmed == true)
-                //    return StatusCode(200, "Email is confirmed!");
-                //else
-                //{
-                //    user.IsEmailConfirmed = true;
-                //    user.ConfirmEmail.IsConfirmed = true;
-                //}
+                var user = _userManager.Users.Include(u => u.ConfirmEmails).FirstOrDefault(u => u.Id == userId);
+                var createUserConfirmEmail = user.ConfirmEmails.FirstOrDefault(e => e.Purpose == (int)ConfirmEmailPurpose.CreateIdentity);
 
-                //_userDbServices.SaveChanges();
+                //var user = _userDbServices.GetUserIncludeConfirmEmail(userId);
+                if (!createUserConfirmEmail.ConfirmCode.Equals(code))
+                    return StatusCode(404, "Confirm code is not match!");
+                if (!(createUserConfirmEmail.ExpiryTime > DateTime.Now))
+                    return StatusCode(400, "Confirm code is expired!");
+                if (createUserConfirmEmail.IsConfirmed == true)
+                    return StatusCode(200, "Email is confirmed!");
+                else
+                {
+                    user.IsEmailConfirmed = true;
+                    createUserConfirmEmail.IsConfirmed = true;
+                }
+
+                var temp = _userManager.UpdateAsync(user).Result;
             }
             catch (Exception ex)
             {

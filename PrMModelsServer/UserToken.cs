@@ -16,7 +16,9 @@ namespace PrMDbModels
         public string? Gender { get; set; } = string.Empty;
         public override string? PhoneNumber { get; set; } = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;
-        public DateTime? UpdateTime { get; set; } = null;
+        public DateTime? UpdateTime { get; set; } = DateTime.Now;
+        public DateTime CreateTime { get; set; } = DateTime.Now;
+
         public string? Avatar { get; set; } = null;
         public bool IsEmailConfirmed { get; set; } = false;
 
@@ -26,9 +28,9 @@ namespace PrMDbModels
         public List<TeamManager>? TeamManager { get; set; }
 
         #region ignore
-        [NotMapped]
+        //[NotMapped]
         public override string? NormalizedUserName { get; set; } = string.Empty;
-        [NotMapped]
+        //[NotMapped]
         public override string? NormalizedEmail { get; set; } = string.Empty;
         [NotMapped]
         public override bool EmailConfirmed { get; set; } = false;
@@ -38,11 +40,11 @@ namespace PrMDbModels
         public override bool PhoneNumberConfirmed { get; set; }
         [NotMapped]
         public override bool TwoFactorEnabled { get; set; }
-        [NotMapped]
+        //[NotMapped]
         public override DateTimeOffset? LockoutEnd { get; set; }
-        [NotMapped]
+        //[NotMapped]
         public override bool LockoutEnabled { get; set; }
-        [NotMapped]
+        //[NotMapped]
         public override int AccessFailedCount { get; set; }
         #endregion
 

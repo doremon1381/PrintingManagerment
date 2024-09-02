@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PrMDbModels;
 using PrMServerUltilities.Extensions;
@@ -17,18 +18,18 @@ namespace IssuerOfClaims.Services
     {
         //private IPrMUserManager _authenticateServices;
         private IPrMLoginSessionManager _loginSessionManager;
-        private IPrMUserDbServices _userDbServices;
+        //private IPrMUserDbServices _userDbServices;
         private IPrMClientDbServices _clientDbServices;
         private UserManager<PrMUser> _userManager;
 
         public PrMAuthenticationHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder
-            , IPrMLoginSessionManager loginSessionManager, IPrMUserDbServices userDbServices, IPrMClientDbServices clientDbServices, UserManager<PrMUser> userManager) 
+            , IPrMLoginSessionManager loginSessionManager, IPrMClientDbServices clientDbServices, UserManager<PrMUser> userManager) 
             : base(options, logger, encoder)
             //, IPrMUserManager authenticateServices
         {
             //_authenticateServices = authenticateServices;
             _loginSessionManager = loginSessionManager;
-            _userDbServices = userDbServices;
+            //_userDbServices = userDbServices;
             _clientDbServices = clientDbServices;
             _userManager = userManager;
         }
@@ -94,7 +95,12 @@ namespace IssuerOfClaims.Services
                 string password = userNamePassword.Split(":")[1];
 
                 // TODO: Do authentication of userId and password against your credentials store here
-                var user = _userDbServices.GetUserWithRelation(userName);
+                var user = _userManager.Users
+                    .Include(user => user.PrMIdentityUserRoles).ThenInclude(p => p.Role)
+                    //.Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
+                    //.Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenRequestSession)
+                    //.Include(u => u.ConfirmEmails)
+                    .FirstOrDefault(u => u.UserName == userName);
 
                 if (user == null)
                     return AuthenticateResult.Fail("User is not found!");

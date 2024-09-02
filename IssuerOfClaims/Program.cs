@@ -29,7 +29,7 @@ namespace IssuerOfClaims
             builder.Services.AddScoped<IConfirmEmailDbServices, ConfirmEmailDbServices>();
             builder.Services.AddScoped<ITokenResponseDbServices, TokenResponseDbServices>();
             builder.Services.AddScoped<ITokenRequestSessionDbServices, TokenRequestSessionDbServices>();
-            builder.Services.AddScoped<IPrMUserDbServices, PrMUserDbServices>();
+            //builder.Services.AddScoped<IPrMUserDbServices, PrMUserDbServices>();
             builder.Services.AddScoped<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
             builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
             builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());

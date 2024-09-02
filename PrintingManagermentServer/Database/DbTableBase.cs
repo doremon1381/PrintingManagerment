@@ -69,8 +69,30 @@ namespace PrintingManagermentServer.Database
 
         public bool Delete(TEntity model)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                this._DbModels.Remove(model);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
+
+        public bool DeleteMany(List<TEntity> models)
+        {
+            try
+            {
+                this._DbModels.RemoveRange(models);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
         public bool IsTableEmpty()
         {
             return this._DbModels.Count() > 0 ? false : true;
@@ -109,6 +131,7 @@ namespace PrintingManagermentServer.Database
         bool Add(TDbModel model);
         bool Update(TDbModel model);
         bool Delete(TDbModel model);
+        bool DeleteMany(List<TDbModel> models);
         bool AddMany(List<TDbModel> models);
         void SaveChanges();
     }

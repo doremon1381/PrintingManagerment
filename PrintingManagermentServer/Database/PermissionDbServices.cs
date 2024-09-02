@@ -17,10 +17,16 @@ namespace PrintingManagermentServer.Database
             //_Permissions.
             throw new NotImplementedException();
         }
+
+        public bool DeletePermissionFromUser(Permission deleted)
+        {
+            return Delete(deleted);
+        }
     }
 
     public interface IPermissionDbServices: IDbContextBase<Permission>
     {
         bool AddRole(Role role);
+        bool DeletePermissionFromUser(Permission deleted);
     }
 }

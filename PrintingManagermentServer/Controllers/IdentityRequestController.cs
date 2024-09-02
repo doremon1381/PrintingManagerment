@@ -17,6 +17,8 @@ using PrintingManagermentServer.Database;
 using Newtonsoft.Json;
 using PrMDbModels;
 using PrintingManagermentServer.Client;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace PrintingManagermentServer.Controllers
 {
@@ -30,16 +32,18 @@ namespace PrintingManagermentServer.Controllers
     {
         private readonly IConfigurationManager _configuration;
         private readonly ILoginSessionManager _loginSessionManager;
-        private readonly IUserTokenDbServices _userTokenServices;
+        private readonly UserManager<UserToken> _userManager;
+        //private readonly IUserTokenDbServices _userTokenServices;
         private readonly IRoleDbServices _roleDbServices;
         private readonly ClientSettings _clientSettings;
 
-        public IdentityRequestController(IConfigurationManager configuration, ILoginSessionManager loginSessionManager, IUserTokenDbServices userTokenDbServices
+        public IdentityRequestController(IConfigurationManager configuration, ILoginSessionManager loginSessionManager, UserManager<UserToken> userManager
             , IRoleDbServices roleDbServices, ClientSettings clientSettings)
         {
             _configuration = configuration;
             _loginSessionManager = loginSessionManager;
-            _userTokenServices = userTokenDbServices;
+            //_userTokenServices = userTokenDbServices;
+            _userManager = userManager;
             _roleDbServices = roleDbServices;
             _clientSettings = clientSettings;
         }
@@ -93,7 +97,7 @@ namespace PrintingManagermentServer.Controllers
 
                 // TODO: get user info and save to db
                 var user_info = await userinfoCall(accessToken, userInfoEnpoint);
-                var user = _userTokenServices.FindByUsernameWithPermission(jsonToken.Payload.Sub);
+                var user = _userManager.Users.Include(u => u.Permissions).ThenInclude(p => p.Role).FirstOrDefault(u => u.UserName == jsonToken.Payload.Sub);
                 if (user == null)
                 {
                     user = CreateNewUser(jsonToken, user);
@@ -187,7 +191,7 @@ namespace PrintingManagermentServer.Controllers
                     User = user
                 }}
             };
-            _userTokenServices.Create(user);
+            _userManager.CreateAsync(user);
             return user;
         }
 

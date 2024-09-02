@@ -26,9 +26,9 @@ namespace PrintingManagermentServer
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
             builder.Services.AddScoped<ILoginSessionWithTokenDbServices, LoginSessionWithTokenDbServices>();
             builder.Services.AddScoped<ILoginSessionManager, LoginSessionManager>();
-            builder.Services.AddScoped<IUserTokenDbServices, UserTokenDbServices>();
+            //builder.Services.AddScoped<IUserTokenDbServices, UserTokenDbServices>();
             builder.Services.AddScoped<IRoleDbServices, RoleDbServices>();
-            //builder.Services.AddScoped<IEmailDbServices, EmailDbServices>();
+            builder.Services.AddScoped<IPermissionDbServices, PermissionDbServices>();
             builder.Services.AddSingleton(builder.Configuration.GetSection("IdentityServer").Get<ClientSettings>());
             //builder.Services.AddSingleton(builder.Configuration.GetSection("jwt").Get<MailSettings>());
 

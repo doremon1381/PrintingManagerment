@@ -43,7 +43,7 @@ namespace PrMDbModels
         ///// TODO: to allow user-agent can use refresh-token to get new access token using token enpoint
         ///// </summary>
         //public bool IsOfflineAccess { get; set; } = true;
-        public List<ConfirmEmail>? ConfirmEmail { get; set; } = new List<ConfirmEmail>();
+        public List<ConfirmEmail>? ConfirmEmails { get; set; } = new List<ConfirmEmail>();
         public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
         public List<TokenRequestHandler> LoginSessionsWithResponse { get; set; } = new List<TokenRequestHandler>();
 
