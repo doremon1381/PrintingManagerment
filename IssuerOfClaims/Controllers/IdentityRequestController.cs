@@ -181,6 +181,7 @@ namespace IssuerOfClaims.Controllers
             return StatusCode(500, "Not yet know why...");
         }
 
+        #region authorization code flow
         /// <summary>
         /// TODO: Authorization Server Authenticates End-User: https://openid.net/specs/openid-connect-core-1_0.html
         /// </summary>
@@ -268,285 +269,6 @@ namespace IssuerOfClaims.Controllers
                     return false;
             }
             return true;
-        }
-
-        public async Task<ActionResult> RegisterUserAsync(string[] queryString, string state, string scope, string nonce, string redirectUri, string clientId)
-        {
-            try
-            {
-                var headers = HttpContext.Request.Headers;
-
-                if (headers["Register"][0] == null)
-                    return StatusCode(400, "Register header is missing!");
-
-                queryString.GetFromQueryString("email", out string email);
-                // TODO: for vietnamese text
-                queryString.GetFromQueryString("name", out string name);
-                name = HttpUtility.UrlDecode(name);
-                queryString.GetFromQueryString("fullname", out string fullName);
-                fullName = HttpUtility.UrlDecode(fullName);
-                queryString.GetFromQueryString("gender", out string gender);
-                queryString.GetFromQueryString("roles", out string roles);
-                // TODO: will add role later
-
-                // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
-                //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
-                scope = System.Uri.UnescapeDataString(scope);
-                if (string.IsNullOrEmpty(scope))
-                    return StatusCode(400, "scope is empty!");
-                // TODO: nonce is optional, so may be string.empty
-
-                var userCredentials = headers["Register"][0];
-                var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
-
-                // TODO: will need to validate username and password, from client and server
-                string userName = userNamePassword.Split(":")[0];
-                string password = userNamePassword.Split(":")[1];
-
-                if (string.IsNullOrEmpty(password))
-                    return StatusCode(400, "password is missing!");
-
-                var currentUser = _userDbServices.GetUserByUserName(userName);
-                if (currentUser != null)
-                    return StatusCode(409, "user with this username is already exist");
-
-                // TODO: for test, I comment this part
-                //if (!string .IsNullOrEmpty(email))
-                //{
-                //    var emailCheck = _userManager.FindByEmailAsync(email);
-                //    if (currentUser != null)
-                //        return StatusCode(409, "email can only be used for one account!");
-                //}                
-
-                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
-
-                // TODO
-                var result = _userManager.CreateAsync(user, password).Result;
-                if (result.Succeeded)
-                {
-                    // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
-                    var client = _clientDbServices.GetById(clientId);
-                    var id_token = GenerateIdToken(user, scope, nonce, clientId);
-
-                    if (!string.IsNullOrEmpty(user.Email))
-                        await SendVerifyingEmailAsync(user, "ConfirmEmail", client);
-
-                    object responseBody = new
-                    {
-                        status = 200,
-                        message = "new user is created!",
-                        id_token = id_token
-                    };
-                    if (!string.IsNullOrEmpty(state))
-                    {
-                        responseBody = new
-                        {
-                            status = 200,
-                            message = "new user is created!",
-                            state = state,
-                            id_token = id_token
-                        };
-                    }
-
-                    return StatusCode(200, responseBody);
-                }
-                else
-                {
-                    return StatusCode(500, "Internal server error!");
-                }
-
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, "Internal server error!");
-            }
-            //return StatusCode(500, "Unknown error!");
-        }
-
-        #region implicit grant
-        /// <summary>
-        /// TODO: not yet done
-        /// </summary>
-        /// <param name="requestQuerry"></param>
-        /// <param name="responseMode"></param>
-        /// <param name="redirectUri"></param>
-        /// <param name="state"></param>
-        /// <param name="scope"></param>
-        /// <param name="nonce"></param>
-        /// <param name="clientId"></param>
-        /// <param name="headers"></param>
-        /// <returns></returns>
-        private async Task<ActionResult> ImplicitGrantWithFormPostAsync(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
-        {
-            try
-            {
-                // TODO: for this situation, Thread and http context may not need
-                //var principal = Thread.CurrentPrincipal;
-                var principal = HttpContext.User;
-
-                var user = await _userManager.GetUserAsync(principal);
-                var client = _clientDbServices.GetById(clientId);
-                scope = System.Uri.UnescapeDataString(scope);
-                // TODO: scope is used for getting claims to send to client,
-                //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-                var idToken = GenerateIdToken(user, scope, nonce, clientId);
-
-                var loginSession = _loginSessionManager.CreateUserLoginSession(user, client);
-
-                loginSession.TokenResponse.IdToken = idToken;
-
-                // Check response mode to know what kind of response is going to be used
-                // return a form_post, url fragment or body of response
-                if (responseMode.Equals(ResponseModes.FormPost))
-                {
-                    Dictionary<string, string> inputBody = new Dictionary<string, string>();
-                    inputBody.Add(AuthorizeResponse.IdentityToken, idToken);
-
-                    //string formPost = GetFormPostHtml(webServerConfiguration["redirect_uris:0"], inputBody);
-                    string formPost = GetFormPostHtml(redirectUri, inputBody);
-
-                    HttpContext.Response.Headers.Append("state", state);
-
-                    // TODO: will learn how to use this function
-                    await WriteHtmlAsync(HttpContext.Response, formPost);
-
-                    // TODO: will learn how to use it later
-                    return new EmptyResult();
-                }
-                else if (responseMode.Equals(ResponseModes.Fragment))
-                {
-                    // TODO:
-                }
-                else if (responseMode.Equals(ResponseModes.Query))
-                {
-                    // TODO: will need to add state into response, return this form for now
-                    return StatusCode(200, idToken);
-                }
-                else
-                    return StatusCode(400, "Response mode is not allowed!");
-
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-
-
-            return StatusCode(200, "every thing is done!");
-        }
-
-        /// <summary>
-        /// TODO: from duende
-        /// </summary>
-        /// <param name="formPost"></param>
-        /// <returns></returns>
-        private async Task WriteHtmlAsync(HttpResponse response, string formPost)
-        {
-            response.ContentType = "text/html; charset=UTF-8";
-            await response.WriteAsync(formPost, Encoding.UTF8);
-            await response.Body.FlushAsync();
-        }
-
-
-        /// <summary>
-        /// From identityserver4
-        /// </summary>
-        private const string FormPostHtml = "<html><head><meta http-equiv='X-UA-Compatible' content='IE=edge' /><base target='_self'/></head><body><form method='post' action='{uri}'>{body}<noscript><button>Click to continue</button></noscript></form><script>window.addEventListener('load', function(){document.forms[0].submit();});</script></body></html>";
-
-        /// <summary>
-        /// From identityserver4
-        /// </summary>
-        /// <param name="redirectUri"></param>
-        /// <param name="inputBody"></param>
-        /// <returns></returns>
-        private string GetFormPostHtml(string redirectUri, Dictionary<string, string> inputBody)
-        {
-            var html = FormPostHtml;
-
-            var url = redirectUri;
-            url = HtmlEncoder.Default.Encode(url);
-            html = html.Replace("{uri}", url);
-            html = html.Replace("{body}", ToFormPost(inputBody));
-
-            return html;
-        }
-
-        private string ToFormPost(Dictionary<string, string> collection)
-        {
-            var builder = new StringBuilder(128);
-            const string inputFieldFormat = "<input type='hidden' name='{0}' value='{1}' />\n";
-
-            foreach (var keyValue in collection)
-            {
-                var value = keyValue.Value;
-                //var value = value;
-                value = HtmlEncoder.Default.Encode(value);
-                builder.AppendFormat(inputFieldFormat, keyValue.Key, value);
-            }
-
-            return builder.ToString();
-        }
-        #endregion
-
-        [HttpGet("token")]
-        // TODO: by oauth flow, only client can use this 
-        [Authorize]
-        // 5.3.2.  Successful UserInfo Response: https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
-        public async Task<ActionResult> TokenEndpointAsync()
-        {
-            // TODO
-            return StatusCode(200);
-        }
-
-        // TODO: try to implement from
-        //     : https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/
-        //     : Token Request Validation: https://openid.net/specs/openid-connect-core-1_0.html
-        //     : only allow authorization code to get access token and id token,
-        //     : access token will be use for scope uri, like userinfo or email...
-        [HttpPost("token")]
-        [AllowAnonymous]
-        public async Task<ActionResult> TokenEndpointPostAsync()
-        {
-            // TODO: for now, only response to authorization code request to access token
-            //     : need to implement another action
-            //     : send back access_token when have request refresh 
-            //if (!string.IsNullOrEmpty(HttpContext.Request.QueryString.Value))
-            //    return StatusCode(400, "querry string must have for token request!");
-
-            //var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
-
-            Dictionary<string, string> requestBody = new Dictionary<string, string>();
-
-            using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
-            {
-                var temp = await reader.ReadToEndAsync();
-                temp.Split('&').ToList().ForEach(t =>
-                {
-                    var r = t.Split("=");
-                    requestBody.Add(r[0], r[1]);
-                });
-            }
-
-            if (requestBody.Count == 0)
-                return StatusCode(400, "body is missing!");
-
-            //string refreshToken = requestBody.FirstOrDefault(c => c.StartsWith(GrantTypes.RefreshToken)).Split("=")[1];
-            string grantType = requestBody[TokenRequest.GrantType];
-
-            switch (grantType)
-            {
-                case OidcConstants.GrantTypes.RefreshToken:
-                    {
-                        // TODO: return new accesstoken using refresh token if it's not expired
-                        var loginSessionWithToken = _loginSessionManager.FindByRefreshToken(grantType);
-
-                        return StatusCode(500, "not implement exception!");
-                    }
-                case OidcConstants.GrantTypes.AuthorizationCode:
-                    return await GetAccessTokenFromAuthorizationCodeAsync(requestBody);
-                default:
-                    return StatusCode(500, "Unknown error!");
-            }
         }
 
         private async Task<ActionResult> GetAccessTokenFromAuthorizationCodeAsync(Dictionary<string, string> requestBody)
@@ -843,6 +565,288 @@ namespace IssuerOfClaims.Controllers
                 };
 
             return responseBody;
+        }
+        #endregion
+
+        #region resiger user
+        public async Task<ActionResult> RegisterUserAsync(string[] queryString, string state, string scope, string nonce, string redirectUri, string clientId)
+        {
+            try
+            {
+                var headers = HttpContext.Request.Headers;
+
+                if (headers["Register"][0] == null)
+                    return StatusCode(400, "Register header is missing!");
+
+                queryString.GetFromQueryString("email", out string email);
+                // TODO: for vietnamese text
+                queryString.GetFromQueryString("name", out string name);
+                name = HttpUtility.UrlDecode(name);
+                queryString.GetFromQueryString("fullname", out string fullName);
+                fullName = HttpUtility.UrlDecode(fullName);
+                queryString.GetFromQueryString("gender", out string gender);
+                queryString.GetFromQueryString("roles", out string roles);
+                // TODO: will add role later
+
+                // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
+                //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
+                scope = System.Uri.UnescapeDataString(scope);
+                if (string.IsNullOrEmpty(scope))
+                    return StatusCode(400, "scope is empty!");
+                // TODO: nonce is optional, so may be string.empty
+
+                var userCredentials = headers["Register"][0];
+                var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
+
+                // TODO: will need to validate username and password, from client and server
+                string userName = userNamePassword.Split(":")[0];
+                string password = userNamePassword.Split(":")[1];
+
+                if (string.IsNullOrEmpty(password))
+                    return StatusCode(400, "password is missing!");
+
+                var currentUser = _userDbServices.GetUserByUserName(userName);
+                if (currentUser != null)
+                    return StatusCode(409, "user with this username is already exist");
+
+                // TODO: for test, I comment this part
+                //if (!string.IsNullOrEmpty(email))
+                //{
+                //    var emailCheck = _userManager.FindByEmailAsync(email);
+                //    if (currentUser != null)
+                //        return StatusCode(409, "email can only be used for one account!");
+                //}                
+
+                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
+
+                // TODO
+                var result = _userManager.CreateAsync(user, password).Result;
+                if (result.Succeeded)
+                {
+                    // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
+                    var client = _clientDbServices.GetById(clientId);
+                    var id_token = GenerateIdToken(user, scope, nonce, clientId);
+
+                    if (!string.IsNullOrEmpty(user.Email))
+                        await SendVerifyingEmailAsync(user, "ConfirmEmail", client);
+
+                    object responseBody = new
+                    {
+                        status = 200,
+                        message = "new user is created!",
+                        id_token = id_token
+                    };
+                    if (!string.IsNullOrEmpty(state))
+                    {
+                        responseBody = new
+                        {
+                            status = 200,
+                            message = "new user is created!",
+                            state = state,
+                            id_token = id_token
+                        };
+                    }
+
+                    return StatusCode(200, responseBody);
+                }
+                else
+                {
+                    return StatusCode(500, "Internal server error!");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error!");
+            }
+            //return StatusCode(500, "Unknown error!");
+        }
+        #endregion
+
+        #region implicit grant
+        /// <summary>
+        /// TODO: not yet done
+        /// </summary>
+        /// <param name="requestQuerry"></param>
+        /// <param name="responseMode"></param>
+        /// <param name="redirectUri"></param>
+        /// <param name="state"></param>
+        /// <param name="scope"></param>
+        /// <param name="nonce"></param>
+        /// <param name="clientId"></param>
+        /// <param name="headers"></param>
+        /// <returns></returns>
+        private async Task<ActionResult> ImplicitGrantWithFormPostAsync(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
+        {
+            try
+            {
+                // TODO: for this situation, Thread and http context may not need
+                //var principal = Thread.CurrentPrincipal;
+                var principal = HttpContext.User;
+
+                var user = await _userManager.GetUserAsync(principal);
+                var client = _clientDbServices.GetById(clientId);
+                scope = System.Uri.UnescapeDataString(scope);
+                // TODO: scope is used for getting claims to send to client,
+                //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
+                var idToken = GenerateIdToken(user, scope, nonce, clientId);
+
+                var loginSession = _loginSessionManager.CreateUserLoginSession(user, client);
+
+                loginSession.TokenResponse.IdToken = idToken;
+
+                // Check response mode to know what kind of response is going to be used
+                // return a form_post, url fragment or body of response
+                if (responseMode.Equals(ResponseModes.FormPost))
+                {
+                    Dictionary<string, string> inputBody = new Dictionary<string, string>();
+                    inputBody.Add(AuthorizeResponse.IdentityToken, idToken);
+
+                    //string formPost = GetFormPostHtml(webServerConfiguration["redirect_uris:0"], inputBody);
+                    string formPost = GetFormPostHtml(redirectUri, inputBody);
+
+                    HttpContext.Response.Headers.Append("state", state);
+
+                    // TODO: will learn how to use this function
+                    await WriteHtmlAsync(HttpContext.Response, formPost);
+
+                    // TODO: will learn how to use it later
+                    return new EmptyResult();
+                }
+                else if (responseMode.Equals(ResponseModes.Fragment))
+                {
+                    // TODO:
+                }
+                else if (responseMode.Equals(ResponseModes.Query))
+                {
+                    // TODO: will need to add state into response, return this form for now
+                    return StatusCode(200, idToken);
+                }
+                else
+                    return StatusCode(400, "Response mode is not allowed!");
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+
+            return StatusCode(200, "every thing is done!");
+        }
+
+        /// <summary>
+        /// TODO: from duende
+        /// </summary>
+        /// <param name="formPost"></param>
+        /// <returns></returns>
+        private async Task WriteHtmlAsync(HttpResponse response, string formPost)
+        {
+            response.ContentType = "text/html; charset=UTF-8";
+            await response.WriteAsync(formPost, Encoding.UTF8);
+            await response.Body.FlushAsync();
+        }
+
+
+        /// <summary>
+        /// From identityserver4
+        /// </summary>
+        private const string FormPostHtml = "<html><head><meta http-equiv='X-UA-Compatible' content='IE=edge' /><base target='_self'/></head><body><form method='post' action='{uri}'>{body}<noscript><button>Click to continue</button></noscript></form><script>window.addEventListener('load', function(){document.forms[0].submit();});</script></body></html>";
+
+        /// <summary>
+        /// From identityserver4
+        /// </summary>
+        /// <param name="redirectUri"></param>
+        /// <param name="inputBody"></param>
+        /// <returns></returns>
+        private string GetFormPostHtml(string redirectUri, Dictionary<string, string> inputBody)
+        {
+            var html = FormPostHtml;
+
+            var url = redirectUri;
+            url = HtmlEncoder.Default.Encode(url);
+            html = html.Replace("{uri}", url);
+            html = html.Replace("{body}", ToFormPost(inputBody));
+
+            return html;
+        }
+
+        private string ToFormPost(Dictionary<string, string> collection)
+        {
+            var builder = new StringBuilder(128);
+            const string inputFieldFormat = "<input type='hidden' name='{0}' value='{1}' />\n";
+
+            foreach (var keyValue in collection)
+            {
+                var value = keyValue.Value;
+                //var value = value;
+                value = HtmlEncoder.Default.Encode(value);
+                builder.AppendFormat(inputFieldFormat, keyValue.Key, value);
+            }
+
+            return builder.ToString();
+        }
+        #endregion
+
+        [HttpGet("token")]
+        // TODO: by oauth flow, only client can use this 
+        [Authorize]
+        // 5.3.2.  Successful UserInfo Response: https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
+        public async Task<ActionResult> TokenEndpointAsync()
+        {
+            // TODO
+            return StatusCode(200);
+        }
+
+        // TODO: try to implement from
+        //     : https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/
+        //     : Token Request Validation: https://openid.net/specs/openid-connect-core-1_0.html
+        //     : only allow authorization code to get access token and id token,
+        //     : access token will be use for scope uri, like userinfo or email...
+        [HttpPost("token")]
+        [AllowAnonymous]
+        public async Task<ActionResult> TokenEndpointPostAsync()
+        {
+            // TODO: for now, only response to authorization code request to access token
+            //     : need to implement another action
+            //     : send back access_token when have request refresh 
+            //if (!string.IsNullOrEmpty(HttpContext.Request.QueryString.Value))
+            //    return StatusCode(400, "querry string must have for token request!");
+
+            //var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
+
+            Dictionary<string, string> requestBody = new Dictionary<string, string>();
+
+            using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
+            {
+                var temp = await reader.ReadToEndAsync();
+                temp.Split('&').ToList().ForEach(t =>
+                {
+                    var r = t.Split("=");
+                    requestBody.Add(r[0], r[1]);
+                });
+            }
+
+            if (requestBody.Count == 0)
+                return StatusCode(400, "body is missing!");
+
+            //string refreshToken = requestBody.FirstOrDefault(c => c.StartsWith(GrantTypes.RefreshToken)).Split("=")[1];
+            string grantType = requestBody[TokenRequest.GrantType];
+
+            switch (grantType)
+            {
+                case OidcConstants.GrantTypes.RefreshToken:
+                    {
+                        // TODO: return new accesstoken using refresh token if it's not expired
+                        var loginSessionWithToken = _loginSessionManager.FindByRefreshToken(grantType);
+
+                        return StatusCode(500, "not implement exception!");
+                    }
+                case OidcConstants.GrantTypes.AuthorizationCode:
+                    return await GetAccessTokenFromAuthorizationCodeAsync(requestBody);
+                default:
+                    return StatusCode(500, "Unknown error!");
+            }
         }
 
         // TODO: by oauth flow, need access token to be verified before using this function
@@ -1156,6 +1160,7 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
+        #region update user
         [HttpPost("user/update")]
         [Authorize]
         public async Task<ActionResult> UpdateUserAsync()
@@ -1173,7 +1178,9 @@ namespace IssuerOfClaims.Controllers
             //return await SendVerifyingEmailAsync(user, "updateUser", client);
             return Ok();
         }
+        #endregion
 
+        #region forget password
         [HttpPost("user/forgotPassword")]
         [AllowAnonymous]
         public async Task<ActionResult> ForgotPasswordPost()
@@ -1213,6 +1220,8 @@ namespace IssuerOfClaims.Controllers
             var confirmEmail = _emailDbServices.GetByCode(code);
             if (!confirmEmail.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
                 return StatusCode(500, "something inside this process is wrong!");
+            if (confirmEmail.ExpiryTime.HasValue || confirmEmail.ExpiryTime < DateTime.Now)
+                return StatusCode(500, "error with email's expired time!");
 
             var user = confirmEmail.User;
             try
@@ -1277,6 +1286,7 @@ namespace IssuerOfClaims.Controllers
 
             return Ok();
         }
+        #endregion
 
         private async Task<ActionResult> SendVerifyingEmailAsync(PrMUser user, string callbackEndpoint, PrMClient client)
         {
