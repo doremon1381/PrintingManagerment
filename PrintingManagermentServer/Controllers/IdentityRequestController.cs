@@ -12,10 +12,11 @@ using static PrMServerUltilities.Identity.OidcConstants;
 using Microsoft.IdentityModel.Tokens;
 using PrintingManagermentServer.Services;
 using Newtonsoft.Json.Linq;
-using PrintingManagermentServer.Models;
 using PrMServerUltilities.Identity;
 using PrintingManagermentServer.Database;
 using Newtonsoft.Json;
+using PrMDbModels;
+using PrintingManagermentServer.Client;
 
 namespace PrintingManagermentServer.Controllers
 {
@@ -31,14 +32,16 @@ namespace PrintingManagermentServer.Controllers
         private readonly ILoginSessionManager _loginSessionManager;
         private readonly IUserTokenDbServices _userTokenServices;
         private readonly IRoleDbServices _roleDbServices;
+        private readonly ClientSettings _clientSettings;
 
         public IdentityRequestController(IConfigurationManager configuration, ILoginSessionManager loginSessionManager, IUserTokenDbServices userTokenDbServices
-            , IRoleDbServices roleDbServices)
+            , IRoleDbServices roleDbServices, ClientSettings clientSettings)
         {
             _configuration = configuration;
             _loginSessionManager = loginSessionManager;
             _userTokenServices = userTokenDbServices;
             _roleDbServices = roleDbServices;
+            _clientSettings = clientSettings;
         }
 
         [HttpGet("callback")]
@@ -96,7 +99,7 @@ namespace PrintingManagermentServer.Controllers
                     user = CreateNewUser(jsonToken, user);
                 }
 
-                var incomingToken = new PrintingManagermentServer.Models.IncomingToken()
+                var incomingToken = new IncomingToken()
                 {
                     AccessToken = accessToken,
                     IdToken = id_token,
@@ -116,7 +119,7 @@ namespace PrintingManagermentServer.Controllers
                 // TODO: token response will be add
 
                 var accessTokenResponse = GenerateJwtAcessToken(user);
-                var tokenResponse = new Models.TokenResponse()
+                var tokenResponse = new PrMDbModels.TokenResponse()
                 {
                     AccessToken = accessTokenResponse,
                     AccessTokenExpiried = DateTime.Now.AddHours(1),
@@ -332,17 +335,22 @@ namespace PrintingManagermentServer.Controllers
         //    return StatusCode(200, responseUri);
         //}
 
-        [HttpGet("changePassword")]
-        [Authorize]
-        public async Task<ActionResult> ChangePassword()
+        [HttpGet("forgotPassword")]
+        public async Task<ActionResult> ForgotPassword()
         {
+            string forgotPasswordEndpoint = _clientSettings.forgotPassword_uri;
+            string clientId = _clientSettings.client_id;
 
+            var responseRedirectUri = string.Format("{0}?client_id={1}",
+                    forgotPasswordEndpoint, clientId);
 
             var response = new
             {
-                location = "",
+                location = responseRedirectUri,
                 message = "add authorize information to Authorization header and send request to location",
             };
+
+            HttpContext.Response.Headers.Append("location", responseRedirectUri);
 
             return StatusCode(200, JsonConvert.SerializeObject(response));
         }

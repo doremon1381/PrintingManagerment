@@ -11,16 +11,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PrMModelsDbServer\PrMModelsDbServer.csproj" />
+    <ProjectReference Include="..\PrMModelsServer\PrMModelsServer.csproj" />
     <ProjectReference Include="..\PrMServerUltilities\PrMServerUltilities.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Extensions\" />
     <Folder Include="Migrations\" />
+    <Folder Include="Models\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.NetCore" Version="2.2.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
@@ -34,7 +36,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.1.2" />
   </ItemGroup>
 

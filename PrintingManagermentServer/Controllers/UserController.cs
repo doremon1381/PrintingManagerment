@@ -1,24 +1,33 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using PrintingManagermentServer.Controllers.Ultility;
 using PrintingManagermentServer.Database;
-using PrMServerUltilities.Identity;
-using System.Security.Claims;
+using PrMDbModels;
+using PrMServerUltilities.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 namespace PrintingManagermentServer.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [ControllerName("users")]
     [Route("[controller]")]
-    public class UserController: ControllerBase
+    [AllowAnonymous]
+    public class UserController : ControllerBase
     {
-        private readonly IUserTokenDbServices _userDbServices;
+        //private readonly IUserTokenDbServices _userDbServices;
+        private readonly UserManager<UserToken> _userManager;
+        //private readonly MailSettings _mailSettings;
+        //private readonly IEmailDbServices _emailDbServices;
 
-        public UserController(IUserTokenDbServices userDbServices) 
+        public UserController(IUserTokenDbServices userDbServices, UserManager<UserToken> userManager)
         {
-            _userDbServices = userDbServices;
+            //_userDbServices = userDbServices;
+            _userManager = userManager;
+            //_mailSettings = mailSettings;
+            //_emailDbServices = emailDbServices;
         }
 
         [HttpGet("all")]
@@ -27,7 +36,11 @@ namespace PrintingManagermentServer.Controllers
         {
             try
             {
-                var users = _userDbServices.GetAllWithInclude();
+                var users = _userManager.Users
+                    .Include(u => u.Permissions).ThenInclude(p => p.Role)
+                    .Include(u => u.Team)
+                    .Include(u => u.TeamManager).Include(tm => tm.Team)
+                    .ToList();
 
                 var returnObj = new List<object>();
                 users.ForEach(u =>

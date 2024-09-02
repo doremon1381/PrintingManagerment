@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using PrMServerUltilities.Identity;
 using PrintingManagermentServer.Database;
-using PrintingManagermentServer.Models;
+using PrMDbModels;
 
 namespace PrintingManagermentServer
 {

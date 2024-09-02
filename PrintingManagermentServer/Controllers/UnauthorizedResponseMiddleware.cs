@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Primitives;
-using PrintingManagermentServer.Models;
+using PrMDbModels;
 using PrintingManagermentServer.Services;
 using PrMServerUltilities;
 using PrMServerUltilities.Identity;
@@ -140,7 +140,7 @@ namespace PrintingManagermentServer.Controllers
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
             context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, Register");
             context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-            context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, location, Authorization");
+            context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, location, Location, Authorization");
         }
 
 

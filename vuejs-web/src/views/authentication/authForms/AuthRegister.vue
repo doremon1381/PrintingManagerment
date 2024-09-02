@@ -29,6 +29,7 @@ const phoneRules = ref([(v) => /^(03|09)\d{8}$/.test(v) || "phone number must st
 // }
 
 function validate() {
+  Regform.value.validate();
   const authStore = useAuthStore();
   //console.log(email.value);
   return authStore.signUp(firstname.value, firstname.value.trim() + " " + lastname.value.trimStart().trimEnd(), username.value, password.value, email.value, gender.value)

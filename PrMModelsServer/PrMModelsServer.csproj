@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>$(DefineConstants);Server</DefineConstants>
+    <DefineConstants>$(DefineConstants);WebServer</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DefineConstants>$(DefineConstants);Server</DefineConstants>
+    <DefineConstants>$(DefineConstants);WebServer</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,22 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\PrMModelsDbServer\ConfirmEmail.cs" Link="ConfirmEmail.cs" />
     <Compile Include="..\PrMModelsDbServer\IDbTable.cs" Link="IDbTable.cs" />
     <Compile Include="..\PrMModelsDbServer\ModelBase.cs" Link="ModelBase.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMClient.cs" Link="PrMClient.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMPermission.cs" Link="PrMPermission.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMRequiredLoginSession.cs" Link="PrMRequiredLoginSession.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMRole.cs" Link="PrMRole.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMRoleClaim.cs" Link="PrMRoleClaim.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMSecret.cs" Link="PrMSecret.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMUser.cs" Link="PrMUser.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMUserClaim.cs" Link="PrMUserClaim.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMUserLogin.cs" Link="PrMUserLogin.cs" />
-    <Compile Include="..\PrMModelsDbServer\PrMUserToken.cs" Link="PrMUserToken.cs" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
     <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="8.0.7" />
   </ItemGroup>
 

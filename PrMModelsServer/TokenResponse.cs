@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrintingManagermentServer.Models
+namespace PrMDbModels
 {
     /// <summary>
     /// Use for saving token which is used for sending to user-agent

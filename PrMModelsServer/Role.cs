@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrintingManagermentServer.Models
+namespace PrMDbModels
 {
     [Table("Roles")]
     [PrimaryKey(nameof(Id))]

@@ -109,7 +109,7 @@ export const useAuthStore = defineStore({
               localStorage.setItem('user', JSON.stringify(user));
               // redirect to previous url or default to home page
               router.push(this.returnUrl || '/dashboard/default');
-            }, () => {})
+            })
           })
             
       })
@@ -144,19 +144,14 @@ export const useAuthStore = defineStore({
               "Register": "Basic "+ authorization
             }, response => {
             // console.log(response.data.location);
-            if(!ValidateState(response.data.state, registerState))
+            if(ValidateState(response.data.state, registerState))
             {
-              console.log("incoming state is not valid");
               // TODO: show alert, but currently not have
               //router.push('/auth/login');
+              router.push(this.returnUrl || '/auth/login');
             }
-
-            router.push(this.returnUrl || '/auth/login');
-            // if (headers instanceof AxiosHeaders && headers.has('location')) {
-            //     accessTokenUri = headers["location"] + "&client_state=" + clientState + "&state=" + authState;
-            //     console.log(accessTokenUri);
-            // }
-          }, () => {});            
+            console.log("incoming state is not valid");
+          });            
       })
     }
   }

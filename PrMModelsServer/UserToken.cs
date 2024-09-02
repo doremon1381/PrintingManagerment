@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrintingManagermentServer.Models
+namespace PrMDbModels
 {
     [Table("UserTokens")]
     [PrimaryKey(nameof(Id))]

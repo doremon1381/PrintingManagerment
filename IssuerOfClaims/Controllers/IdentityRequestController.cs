@@ -73,7 +73,7 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         [HttpGet("authorize")]
         [Authorize]
-        public async Task<ActionResult> Authorization()
+        public async Task<ActionResult> AuthorizationAsync()
         {
             // 1. Get authorization request from server
             // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
@@ -131,7 +131,7 @@ namespace IssuerOfClaims.Controllers
             if (!string.IsNullOrEmpty(prompt)
                 && prompt.Equals("create"))
             {
-                return await RegisterUser(requestQuerry, state, scope, nonce, redirectUri, clientId);
+                return await RegisterUserAsync(requestQuerry, state, scope, nonce, redirectUri, clientId);
             }
 
             //var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
@@ -163,10 +163,10 @@ namespace IssuerOfClaims.Controllers
                 switch (responseType)
                 {
                     case ResponseTypes.Code:
-                        return await AuthorizationCodeFlow(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
+                        return await AuthorizationCodeFlowAsync(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
                     //break;
                     case ResponseTypes.IdToken:
-                        return await ImplicitGrantWithFormPost(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
+                        return await ImplicitGrantWithFormPostAsync(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
                     //break;
                     // TODO: will implement another flow if I have time
                     default:
@@ -192,7 +192,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="nonce"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> AuthorizationCodeFlow(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
+        private async Task<ActionResult> AuthorizationCodeFlowAsync(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
         {
             // TODO: comment for now
             //     : by using AuthenticateHanlder, in this step, authenticated is done
@@ -270,6 +270,100 @@ namespace IssuerOfClaims.Controllers
             return true;
         }
 
+        public async Task<ActionResult> RegisterUserAsync(string[] queryString, string state, string scope, string nonce, string redirectUri, string clientId)
+        {
+            try
+            {
+                var headers = HttpContext.Request.Headers;
+
+                if (headers["Register"][0] == null)
+                    return StatusCode(400, "Register header is missing!");
+
+                queryString.GetFromQueryString("email", out string email);
+                // TODO: for vietnamese text
+                queryString.GetFromQueryString("name", out string name);
+                name = HttpUtility.UrlDecode(name);
+                queryString.GetFromQueryString("fullname", out string fullName);
+                fullName = HttpUtility.UrlDecode(fullName);
+                queryString.GetFromQueryString("gender", out string gender);
+                queryString.GetFromQueryString("roles", out string roles);
+                // TODO: will add role later
+
+                // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
+                //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
+                scope = System.Uri.UnescapeDataString(scope);
+                if (string.IsNullOrEmpty(scope))
+                    return StatusCode(400, "scope is empty!");
+                // TODO: nonce is optional, so may be string.empty
+
+                var userCredentials = headers["Register"][0];
+                var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
+
+                // TODO: will need to validate username and password, from client and server
+                string userName = userNamePassword.Split(":")[0];
+                string password = userNamePassword.Split(":")[1];
+
+                if (string.IsNullOrEmpty(password))
+                    return StatusCode(400, "password is missing!");
+
+                var currentUser = _userDbServices.GetUserByUserName(userName);
+                if (currentUser != null)
+                    return StatusCode(409, "user with this username is already exist");
+
+                // TODO: for test, I comment this part
+                //if (!string .IsNullOrEmpty(email))
+                //{
+                //    var emailCheck = _userManager.FindByEmailAsync(email);
+                //    if (currentUser != null)
+                //        return StatusCode(409, "email can only be used for one account!");
+                //}                
+
+                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
+
+                // TODO
+                var result = _userManager.CreateAsync(user, password).Result;
+                if (result.Succeeded)
+                {
+                    // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
+                    var client = _clientDbServices.GetById(clientId);
+                    var id_token = GenerateIdToken(user, scope, nonce, clientId);
+
+                    if (!string.IsNullOrEmpty(user.Email))
+                        await SendVerifyingEmailAsync(user, "ConfirmEmail", client);
+
+                    object responseBody = new
+                    {
+                        status = 200,
+                        message = "new user is created!",
+                        id_token = id_token
+                    };
+                    if (!string.IsNullOrEmpty(state))
+                    {
+                        responseBody = new
+                        {
+                            status = 200,
+                            message = "new user is created!",
+                            state = state,
+                            id_token = id_token
+                        };
+                    }
+
+                    return StatusCode(200, responseBody);
+                }
+                else
+                {
+                    return StatusCode(500, "Internal server error!");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error!");
+            }
+            //return StatusCode(500, "Unknown error!");
+        }
+
+        #region implicit grant
         /// <summary>
         /// TODO: not yet done
         /// </summary>
@@ -282,7 +376,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="clientId"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> ImplicitGrantWithFormPost(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
+        private async Task<ActionResult> ImplicitGrantWithFormPostAsync(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
         {
             try
             {
@@ -392,12 +486,13 @@ namespace IssuerOfClaims.Controllers
 
             return builder.ToString();
         }
+        #endregion
 
         [HttpGet("token")]
         // TODO: by oauth flow, only client can use this 
         [Authorize]
         // 5.3.2.  Successful UserInfo Response: https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
-        public async Task<ActionResult> TokenEndpoint()
+        public async Task<ActionResult> TokenEndpointAsync()
         {
             // TODO
             return StatusCode(200);
@@ -410,7 +505,7 @@ namespace IssuerOfClaims.Controllers
         //     : access token will be use for scope uri, like userinfo or email...
         [HttpPost("token")]
         [AllowAnonymous]
-        public async Task<ActionResult> TokenEndpointPost()
+        public async Task<ActionResult> TokenEndpointPostAsync()
         {
             // TODO: for now, only response to authorization code request to access token
             //     : need to implement another action
@@ -448,13 +543,13 @@ namespace IssuerOfClaims.Controllers
                         return StatusCode(500, "not implement exception!");
                     }
                 case OidcConstants.GrantTypes.AuthorizationCode:
-                    return await GetAccessTokenFromAuthorizationCode(requestBody);
+                    return await GetAccessTokenFromAuthorizationCodeAsync(requestBody);
                 default:
                     return StatusCode(500, "Unknown error!");
             }
         }
 
-        private async Task<ActionResult> GetAccessTokenFromAuthorizationCode(Dictionary<string, string> requestBody)
+        private async Task<ActionResult> GetAccessTokenFromAuthorizationCodeAsync(Dictionary<string, string> requestBody)
         {
             // TODO: get from queryString, authorization code
             //     : get user along with authorization code inside latest login session (of that user)
@@ -754,7 +849,7 @@ namespace IssuerOfClaims.Controllers
         //     : done using access token, verify with authorization: bearer
         [HttpGet("userinfo")]
         [Authorize]
-        public async Task<ActionResult> GetUserInfo()
+        public async Task<ActionResult> GetUserInfoAsync()
         {
             // TODO: exchange access token to get user from latest login session inside memory
             //     : create user_info json response to send to client
@@ -785,7 +880,7 @@ namespace IssuerOfClaims.Controllers
         [HttpGet("userinfo.email")]
         // TODO: by oauth flow, need access token to be verified before using this function
         [Authorize]
-        public async Task<ActionResult> GetUserInfoAndEmail()
+        public async Task<ActionResult> GetUserInfoAndEmailAsync()
         {
             // TODO: exchange access token to get user from latest login session inside memory
             //     : create user_info json response to send to client
@@ -820,7 +915,7 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpPost("authorize")]
-        public async Task<ActionResult> AuthorizationPost()
+        public async Task<ActionResult> AuthorizationPostAsync()
         {
             // 1. Get authorization request from server
             // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
@@ -837,7 +932,7 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         [HttpGet("ConfirmEmail")]
         [AllowAnonymous]
-        public async Task<ActionResult> ConfirmEmail()
+        public async Task<ActionResult> ConfirmEmailAsync()
         {
             try
             {
@@ -848,21 +943,22 @@ namespace IssuerOfClaims.Controllers
                 var userId = int.Parse(query["userId"]);
                 var code = query["code"];
 
-                var user = _userDbServices.GetUserWithRelation(userId);
-                //var user = _userDbServices.GetUserIncludeConfirmEmail(userId);
-                if (!user.ConfirmEmail.ConfirmCode.Equals(code))
-                    return StatusCode(404, "Confirm code is not match!");
-                if (!(user.ConfirmEmail.ExpiryTime > DateTime.Now))
-                    return StatusCode(400, "Confirm code is expired!");
-                if (user.ConfirmEmail.IsConfirmed == true)
-                    return StatusCode(200, "Email is confirmed!");
-                else
-                {
-                    user.IsEmailConfirmed = true;
-                    user.ConfirmEmail.IsConfirmed = true;
-                }
+                // TODO:
+                //var user = _userDbServices.GetUserWithRelation(userId);
+                ////var user = _userDbServices.GetUserIncludeConfirmEmail(userId);
+                //if (!user.ConfirmEmail.ConfirmCode.Equals(code))
+                //    return StatusCode(404, "Confirm code is not match!");
+                //if (!(user.ConfirmEmail.ExpiryTime > DateTime.Now))
+                //    return StatusCode(400, "Confirm code is expired!");
+                //if (user.ConfirmEmail.IsConfirmed == true)
+                //    return StatusCode(200, "Email is confirmed!");
+                //else
+                //{
+                //    user.IsEmailConfirmed = true;
+                //    user.ConfirmEmail.IsConfirmed = true;
+                //}
 
-                _userDbServices.SaveChanges();
+                //_userDbServices.SaveChanges();
             }
             catch (Exception ex)
             {
@@ -1060,102 +1156,9 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
-        public async Task<ActionResult> RegisterUser(string[] queryString,string state, string scope, string nonce, string redirectUri, string clientId)
-        {
-            try
-            {
-                var headers = HttpContext.Request.Headers;
-
-                if (headers["Register"][0] == null)
-                    return StatusCode(400, "Register header is missing!");
-
-                queryString.GetFromQueryString("email", out string email);
-                // TODO: for vietnamese text
-                queryString.GetFromQueryString("name", out string name);
-                name = HttpUtility.UrlDecode(name);
-                queryString.GetFromQueryString("fullname", out string fullName);
-                fullName = HttpUtility.UrlDecode(fullName);
-                queryString.GetFromQueryString("gender", out string gender);
-                queryString.GetFromQueryString("roles", out string roles);
-                // TODO: will add role later
-
-                // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
-                //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
-                scope = System.Uri.UnescapeDataString(scope);
-                if (string.IsNullOrEmpty(scope))
-                    return StatusCode(400, "scope is empty!");
-                // TODO: nonce is optional, so may be string.empty
-
-                var userCredentials = headers["Register"][0];
-                var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
-
-                // TODO: will need to validate username and password, from client and server
-                string userName = userNamePassword.Split(":")[0];
-                string password = userNamePassword.Split(":")[1];
-
-                if (string.IsNullOrEmpty(password))
-                    return StatusCode(400, "password is missing!");
-
-                var currentUser = _userDbServices.GetUserByUserName(userName);
-                if (currentUser != null)
-                    return StatusCode(409, "user with this username is already exist");
-
-                // TODO: for test, I comment this part
-                //if (!string .IsNullOrEmpty(email))
-                //{
-                //    var emailCheck = _userManager.FindByEmailAsync(email);
-                //    if (currentUser != null)
-                //        return StatusCode(409, "email can only be used for one account!");
-                //}                
-
-                var user = _userDbServices.InitiateUserWithRoles(userName, new string[] { }, email, name, fullName, gender);
-
-                // TODO
-                var result = _userManager.CreateAsync(user, password).Result;
-                if (result.Succeeded)
-                {
-                    // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
-                    var client = _clientDbServices.GetById(clientId);
-                    var id_token = GenerateIdToken(user, scope, nonce, clientId);
-
-                    if (!string.IsNullOrEmpty(user.Email))
-                        await SendVerifyingEmail(user);
-
-                    object responseBody = new
-                    {
-                        status = 200,
-                        message = "new user is created!",
-                        id_token = id_token
-                    };
-                    if (!string.IsNullOrEmpty(state))
-                    {
-                        responseBody = new
-                        {
-                            status = 200,
-                            message = "new user is created!",
-                            state = state,
-                            id_token = id_token
-                        };
-                    }
-
-                    return StatusCode(200, responseBody);
-                }
-                else
-                {
-                    return StatusCode(500, "Internal server error!");
-                }
-
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, "Internal server error!");
-            }
-            //return StatusCode(500, "Unknown error!");
-        }
-
-        [HttpGet]
+        [HttpPost("user/update")]
         [Authorize]
-        public async Task<ActionResult> SendVerifyEmailRequest()
+        public async Task<ActionResult> UpdateUserAsync()
         {
             var userClaims = HttpContext.User;
 
@@ -1167,58 +1170,181 @@ namespace IssuerOfClaims.Controllers
             if (user.IsEmailConfirmed == true)
                 return StatusCode(400, "user's email is already confirmed!");
 
-            return await SendVerifyingEmail(user);
+            //return await SendVerifyingEmailAsync(user, "updateUser", client);
+            return Ok();
         }
 
-        private async Task<ActionResult> SendVerifyingEmail(PrMUser user)
+        [HttpPost("user/forgotPassword")]
+        [AllowAnonymous]
+        public async Task<ActionResult> ForgotPasswordPost()
         {
-            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            //var sr = _userManager.get
-            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
-            await CreateConfirmEmail(user, code);
+            Dictionary<string, string> requestBody = new Dictionary<string, string>();
 
-            string callbackUrl = string.Format("{0}?area=Identity&userId={1}&code={2}",
-                   $"{Request.Scheme}://{Request.Host}/oauth2/ConfirmEmail",
-                   user.Id,
-                   code);
-
-            var email = new MimeMessage();
-            email.From.Add(new MailboxAddress(_mailSettings.Name, _mailSettings.EmailId));
-            // TODO: test email for now
-            email.To.Add(new MailboxAddress(user.UserName, user.Email));
-
-            email.Subject = "Testing out email sending";
-            // $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
-            email.Body = new TextPart(MimeKit.Text.TextFormat.Html)
+            using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
             {
-                //Text = $"<b>Hello all the way from the land of C# {callbackUrl}</b>"
-                Text = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>."
-            };
+                var temp = await reader.ReadToEndAsync();
+                requestBody = JsonConvert.DeserializeObject<Dictionary<string, string>>(temp);
+                //temp.Split('&').ToList().ForEach(t =>
+                //{
+                //    var r = t.Split("=");
+                //    requestBody.Add(r[0], r[1]);
+                //});
+            }
 
-            using (var smtp = new SmtpClient())
+            // TODO: get from query string, code, new password, 
+            var queryString = HttpContext.Request.QueryString.Value;
+            if (queryString == null)
+                return StatusCode(400, "query is missing!");
+            var queryBody = queryString.Remove(0, 1).Split("&");
+
+            //queryBody.GetFromQueryString("code", out string code);
+            var code = requestBody["code"];
+            if (string.IsNullOrEmpty(code))
+                return StatusCode(400, "forgot password verifying code is missing!");
+            //queryBody.GetFromQueryString("password", out string password);
+            var password = requestBody["password"];
+            if (string.IsNullOrEmpty(password))
+                return StatusCode(400, "new password is missing!");
+            queryBody.GetFromQueryString(JwtClaimTypes.ClientId, out string clientId);
+            if (string.IsNullOrEmpty(clientId))
+                return StatusCode(400, "client id is missing!");
+
+            var confirmEmail = _emailDbServices.GetByCode(code);
+            if (!confirmEmail.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
+                return StatusCode(500, "something inside this process is wrong!");
+
+            var user = confirmEmail.User;
+            try
             {
-                smtp.Connect(_mailSettings.Host, 587, false);
-
-                // Note: only needed if the SMTP server requires authentication
-                smtp.Authenticate(_mailSettings.EmailId, _mailSettings.Password);
-
-                smtp.Send(email);
-                smtp.Disconnect(true);
+                var ir = _userManager.RemovePasswordAsync(user).Result;
+                var nir = _userManager.AddPasswordAsync(user, password).Result;
+                confirmEmail.IsConfirmed = true;
+                _emailDbServices.Update(confirmEmail);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
             }
 
             return Ok();
         }
 
-        private async Task CreateConfirmEmail(PrMUser user, string code)
+        [HttpGet("user/forgotPassword")]
+        [AllowAnonymous]
+        public async Task<ActionResult> ForgotPassword()
+        {
+            try
+            {
+                var queryString = HttpContext.Request.QueryString.Value;
+                if (queryString == null)
+                    return StatusCode(400, "query is missing!");
+                var queryBody = queryString.Remove(0, 1).Split("&");
+
+                queryBody.GetFromQueryString(JwtClaimTypes.ClientId, out string clientId);
+                if (string.IsNullOrEmpty(clientId))
+                    return StatusCode(400, "client id is missing!");
+                queryBody.GetFromQueryString(JwtClaimTypes.Email, out string email);
+                if (string.IsNullOrEmpty(email))
+                    return StatusCode(400, "email is missing!");
+
+                var client = _clientDbServices.GetById(clientId);
+                if (client == null)
+                    return StatusCode(404, "client id may wrong!");
+
+                // TODO: get user by email, by logic, username + email is unique for an user that is stored in db, but fow now, email may be duplicated for test
+                var user = _userManager.Users.FirstOrDefault(u => u.Email.Equals(email));
+                await SendForgotPasswordCodeToEmail(user, client);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+            return Ok();
+        }
+
+        private async Task<ActionResult> SendForgotPasswordCodeToEmail(PrMUser user, PrMClient client)
+        {
+            var code = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(8);
+            //var sr = _userManager.get
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+            int expiredTimeInMinutes = 1;
+            await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
+
+            string emailBody = $"Your password reset's security code is <span style=\"font-weight:bold; font-size:25px\">{code}</span>.";
+            SendEmail(user, emailBody);
+
+            return Ok();
+        }
+
+        private async Task<ActionResult> SendVerifyingEmailAsync(PrMUser user, string callbackEndpoint, PrMClient client)
+        {
+            var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            //var sr = _userManager.get
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+            int expiredTimeInMinutes = 60;
+            await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
+
+            string callbackUrl = string.Format("{0}?area=Identity&userId={1}&code={2}",
+                   $"{Request.Scheme}://{Request.Host}/oauth2/{callbackEndpoint}",
+                   user.Id,
+                   code);
+            string emailBody = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.";
+            SendEmail(user, emailBody);
+
+            return Ok();
+        }
+
+        private bool SendEmail(PrMUser user, string emailBody)
+        {
+            bool result = true;
+            try
+            {
+                var email = new MimeMessage();
+                email.From.Add(new MailboxAddress(_mailSettings.Name, _mailSettings.EmailId));
+                // TODO: test email for now
+                email.To.Add(new MailboxAddress(user.UserName, user.Email));
+
+                email.Subject = "Testing out email sending";
+                // $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+                email.Body = new TextPart(MimeKit.Text.TextFormat.Html)
+                {
+                    //Text = $"<b>Hello all the way from the land of C# {callbackUrl}</b>"
+                    Text = emailBody
+                };
+
+                using (var smtp = new SmtpClient())
+                {
+                    smtp.Connect(_mailSettings.Host, 587, false);
+
+                    // Note: only needed if the SMTP server requires authentication
+                    smtp.Authenticate(_mailSettings.EmailId, _mailSettings.Password);
+
+                    smtp.Send(email);
+                    smtp.Disconnect(true);
+                }
+            }
+            catch (Exception)
+            {
+                result = false;
+            }
+
+            return result;
+        }
+
+        private async Task CreateConfirmEmailAsync(PrMUser user, string code, PrMClient client, ConfirmEmailPurpose purpose, int expiredTimeInMinutes)
         {
             try
             {
                 var nw = _emailDbServices.CreateWithoutSaveChanges();
                 nw.ConfirmCode = code;
                 nw.User = user;
+                nw.Client = client;
+                nw.Purpose = (int)purpose;
                 nw.IsConfirmed = false;
-                nw.ExpiryTime = DateTime.Now.AddHours(1);
+                nw.ExpiryTime = DateTime.Now.AddMinutes(expiredTimeInMinutes);
                 nw.CreatedTime = DateTime.Now;
 
                 if (_emailDbServices.Create(nw))

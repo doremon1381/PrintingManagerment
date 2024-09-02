@@ -1,5 +1,5 @@
 ﻿using PrintingManagermentServer.Database;
-using PrintingManagermentServer.Models;
+using PrMDbModels;
 
 namespace PrintingManagermentServer.Services
 {

@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Identity;
-#if DbServer
+#if IdentityServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
 namespace PrMDbModels
 {
-#if DbServer
+#if IdentityServer
     [Table("PrMRoles")]
     [PrimaryKey(nameof(Id))]
 #endif
@@ -14,11 +14,11 @@ namespace PrMDbModels
     {
         public string RoleCode { get; set; }
         public string RoleName { get; set; }
-#if DbServer
+#if IdentityServer
         [NotMapped]
 #endif
         public override string? Name { get; set; }
-#if DbServer
+#if IdentityServer
         [NotMapped]
 #endif
         public override string? NormalizedName { get; set; }

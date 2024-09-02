@@ -4,7 +4,7 @@ namespace PrMDbModels
 {
     public class ModelBase: IDbTable
     {
-#if DbServer
+#if IdentityServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
 #endif
         public int Id { get; set; }

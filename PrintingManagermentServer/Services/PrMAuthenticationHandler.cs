@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
-using PrintingManagermentServer.Models;
+using PrMDbModels;
 using PrMServerUltilities.Identity;
 using System.Security.Claims;
 using System.Text.Encodings.Web;

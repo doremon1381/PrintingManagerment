@@ -1,4 +1,4 @@
-﻿namespace IssuerOfClaims.Models
+﻿namespace PrMDbModels
 {
     public class MailSettings
     {

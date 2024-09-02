@@ -1,5 +1,5 @@
 ﻿using PrMDbModels;
-#if DbServer
+#if IdentityServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PrMDbModels
 {
-#if DbServer
+#if IdentityServer
     [Table("TokenRequestSessions")]
     [PrimaryKey(nameof(Id))]
 #endif
@@ -48,7 +48,7 @@ namespace PrMDbModels
         public int? TokenRequestHandlerId { get; set; }
         public TokenRequestHandler? TokenRequestHandler { get; set; }
 
-#if DbServer
+#if IdentityServer
         //public int? UserId { get; set; }
         //public PrMUser? User { get; set; }
 

@@ -8,9 +8,9 @@ import { ref } from "vue";
 // authInfo = useAuthStore();
 type NX = (value: void) => void;
 type HR = (value: AxiosResponse) => void;
-const webServerTestRequest = "https://localhost:7209";
+const webServerTestRequest = ref("https://localhost:7209");
 
-function useAxiosGet(uri: string, handleResponse: HR, nextRequest: NX)
+function useAxiosGet(uri: string, handleResponse: HR, nextRequest?: NX)
 {
    const data = ref(null);
 
@@ -21,13 +21,14 @@ function useAxiosGet(uri: string, handleResponse: HR, nextRequest: NX)
        console.log(error);
        // TODO: if 401, use router to redirect
    }).then(()=> {
-       nextRequest();
+        if (nextRequest != undefined)
+            nextRequest();
    });
 
    return data;
 }
 
-function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, handleResponse: HR, nextRequest: NX)
+function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, handleResponse: HR, nextRequest?: NX)
 {
    //const data = ref(null);
 
@@ -40,7 +41,8 @@ function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, ha
        console.log(error);
        // TODO: if 401, use router to redirect
    }).then(()=> {
-       nextRequest();
+    if (nextRequest != undefined)
+        nextRequest();
    });
 
    //return data;
@@ -50,7 +52,7 @@ function useAxiosGetWithAccessToken(api: string, handleResponse: HR, nextRequest
 {
    const data = useAuthStore();
 
-   axios.get(webServerTestRequest + api, {
+   axios.get(webServerTestRequest.value + api, {
     headers:{
         Authorization: "Bearer " + data.user.access_token
     }
@@ -69,4 +71,4 @@ function useAxiosGetWithAccessToken(api: string, handleResponse: HR, nextRequest
    });
 }
 
- export { useAxiosGet, useAxiosGetWithHeaders, useAxiosGetWithAccessToken };
+ export { useAxiosGet, useAxiosGetWithHeaders, useAxiosGetWithAccessToken, webServerTestRequest };

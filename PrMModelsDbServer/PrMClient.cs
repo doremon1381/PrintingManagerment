@@ -1,4 +1,4 @@
-﻿#if DbServer
+﻿#if IdentityServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -6,17 +6,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PrMDbModels
 {
-#if DbServer
+#if IdentityServer
     [Table("PrMClients")]
     [PrimaryKey(nameof(Id))]
 #endif
     public class PrMClient : ModelBase
     {
-#if DbServer
+#if IdentityServer
         [Required]
 #endif
         public string ClientId { get; set; }
-#if DbServer
+#if IdentityServer
         [Required]
 #endif
         public string ClientSecrets { get; set; }
@@ -24,7 +24,7 @@ namespace PrMDbModels
         /// <summary>
         /// Specifies the allowed grant types (legal combinations of AuthorizationCode, Implicit, Hybrid, ResourceOwner, ClientCredentials).
         /// </summary>
-#if DbServer
+#if IdentityServer
         [Required]
 #endif
         public string AllowedGrantTypes { get; set; }

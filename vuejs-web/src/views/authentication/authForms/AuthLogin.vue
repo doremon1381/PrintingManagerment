@@ -75,7 +75,7 @@ function validate(values, { setErrors }) {
         hide-details
       ></v-checkbox>
       <div class="ml-auto">
-        <a href="/auth/changePassword" class="text-primary text-decoration-none">Forgot password?</a>
+        <a href="/auth/forgetPassword" class="text-primary text-decoration-none">Forgot password?</a>
       </div>
     </div>
     <v-btn color="secondary" :loading="isSubmitting" block class="mt-2" variant="flat" size="large" :disabled="valid" type="submit">

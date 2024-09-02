@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using System;
-#if DbServer
+#if IdentityServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -8,17 +8,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PrMDbModels
 {
-#if DbServer
+#if IdentityServer
     [Table("PrMUsers")]
     [PrimaryKey(nameof(Id))]
 #endif
     public class PrMUser : IdentityUser<int>, IDbTable
     {
-#if DbServer
+#if IdentityServer
         [Required]
 #endif
         public string? PasswordHashSalt { get; set; } = null;
-#if DbServer
+#if IdentityServer
         [Required]
 #endif
         public string? FullName { get; set; } = string.Empty;
@@ -29,7 +29,7 @@ namespace PrMDbModels
         public bool IsEmailConfirmed { get; set; } = false;
         public DateTime CreateTime { get; set; } = DateTime.Now;
         public DateTime? UpdateTime { get; set; } = DateTime.Now;
-#if DbServer
+#if IdentityServer
         [NotMapped]
 #endif
         public override bool EmailConfirmed { get; set; }
@@ -43,7 +43,7 @@ namespace PrMDbModels
         ///// TODO: to allow user-agent can use refresh-token to get new access token using token enpoint
         ///// </summary>
         //public bool IsOfflineAccess { get; set; } = true;
-        public ConfirmEmail? ConfirmEmail { get; set; } = null;
+        public List<ConfirmEmail>? ConfirmEmail { get; set; } = new List<ConfirmEmail>();
         public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
         public List<TokenRequestHandler> LoginSessionsWithResponse { get; set; } = new List<TokenRequestHandler>();
 

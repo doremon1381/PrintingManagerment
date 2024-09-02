@@ -1,4 +1,3 @@
-using IssuerOfClaims.Controllers;
 using IssuerOfClaims.Controllers.Ultility;
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Models;
@@ -6,9 +5,7 @@ using IssuerOfClaims.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using PrMDbModels;
-using PrMServerUltilities.Identity;
 
 namespace IssuerOfClaims
 {

@@ -5,7 +5,7 @@ using PrintingManagermentServer.Client;
 using PrintingManagermentServer.Controllers;
 using PrintingManagermentServer.Controllers.Ultility;
 using PrintingManagermentServer.Database;
-using PrintingManagermentServer.Models;
+using PrMDbModels;
 using PrintingManagermentServer.Services;
 
 namespace PrintingManagermentServer
@@ -28,7 +28,9 @@ namespace PrintingManagermentServer
             builder.Services.AddScoped<ILoginSessionManager, LoginSessionManager>();
             builder.Services.AddScoped<IUserTokenDbServices, UserTokenDbServices>();
             builder.Services.AddScoped<IRoleDbServices, RoleDbServices>();
+            //builder.Services.AddScoped<IEmailDbServices, EmailDbServices>();
             builder.Services.AddSingleton(builder.Configuration.GetSection("IdentityServer").Get<ClientSettings>());
+            //builder.Services.AddSingleton(builder.Configuration.GetSection("jwt").Get<MailSettings>());
 
             //builder.Services.AddCors(options =>
             //{

@@ -215,14 +215,14 @@ const headers = ref([{
         <v-progress-linear color="cyan" indeterminate v-if="isLoading"></v-progress-linear>
         <v-card v-else flat>
             <template v-slot:text>
-            <v-text-field
-                v-model="search"
-                label="Search by name"
-                :prepend-inner-icon="mdiMagnify"
-                variant="outlined"
-                hide-details
-                single-line
-            ></v-text-field>
+                <v-text-field
+                    v-model="search"
+                    label="Search by name"
+                    :prepend-inner-icon="mdiMagnify"
+                    variant="outlined"
+                    hide-details
+                    single-line
+                ></v-text-field>
             </template>
             <v-data-table
             :headers="headers"
@@ -236,7 +236,6 @@ const headers = ref([{
                         <v-card-title>
                             <span class="text-h5">Edit Item</span>
                         </v-card-title>
-
                         <v-card-text>
                             <v-container>
                                     <v-select :items="roles" v-model="editedItemDefaultSelected" variant="outlined" label="Cập nhật quyền hạn" multiple>

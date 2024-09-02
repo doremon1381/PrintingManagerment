@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Logo from '@/layouts/full/logo/LogoDark.vue';
-import AuthChangePassword from '../authForms/AuthChangePassword.vue';
+import AuthForgetPassword from '../authForms/AuthForgetPassword.vue';
 </script>
 
 <template>
@@ -18,14 +18,14 @@ import AuthChangePassword from '../authForms/AuthChangePassword.vue';
                     <v-row>
                       <v-col cols="12" class="text-center">
                         <Logo />
-                        <h4 class="text-disabled text-h4 mt-3">Change your password?</h4>
+                        <h4 class="text-disabled text-h4 mt-3">Forget password?</h4>
                       </v-col>
                     </v-row>
                     <!---Left Part Logo -->
 
                     <!---Left Part Form-->
-                    <!-- <AuthChangePassword /> -->
-                     <AuthChangePassword/>
+                    <!-- <AuthForgetPassword /> -->
+                     <AuthForgetPassword/>
                     <!---Left Part Form-->
                   </v-card-text>
                 </v-card>

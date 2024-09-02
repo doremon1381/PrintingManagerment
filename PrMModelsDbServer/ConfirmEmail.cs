@@ -1,27 +1,37 @@
-﻿#if DbServer
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-#endif
-using PrMDbModels;
 
 namespace PrMDbModels
 {
-#if DbServer
     [Table("ConfirmEmails")]
     [PrimaryKey(nameof(Id))]
-#endif
     public class ConfirmEmail : ModelBase
     {
-        public int? UserId { get; set; } = null;
-#if DbServer
+#if IdentityServer
         [Required]
 #endif
-        public string ConfirmCode { get; set; } = "";
+        public string ConfirmCode { get; set; } = string.Empty;
         public DateTime? ExpiryTime { get; set; } = null;
         public DateTime CreatedTime { get; set; } = DateTime.Now;
         public bool IsConfirmed { get; set; } = false;
+        // TODO: use confirm code for changing password or ...
+        public int Purpose { get; set; } = 0;
 
+        public int? UserId { get; set; } = null;
+#if IdentityServer
+        public int? ClientId { get; set;} = null;
+        public PrMClient? Client { get; set; } = null;
         public PrMUser? User { get; set; } = null;
+#else
+        public UserToken? User { get; set; }
+#endif
+    }
+
+    public enum ConfirmEmailPurpose
+    {
+        None,
+        CreateIdentity,
+        ChangePassword
     }
 }

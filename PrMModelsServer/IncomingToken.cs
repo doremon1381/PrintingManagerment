@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrintingManagermentServer.Models
+namespace PrMDbModels
 {
     /// <summary>
     /// TODO: Using for saving token from identityserver
