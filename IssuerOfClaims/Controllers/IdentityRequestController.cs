@@ -1181,6 +1181,7 @@ namespace IssuerOfClaims.Controllers
         #region update user
         [HttpPost("user/update")]
         [Authorize]
+        // TODO: will update later
         public async Task<ActionResult> UpdateUserAsync()
         {
             var userClaims = HttpContext.User;
@@ -1210,11 +1211,6 @@ namespace IssuerOfClaims.Controllers
             {
                 var temp = await reader.ReadToEndAsync();
                 requestBody = JsonConvert.DeserializeObject<Dictionary<string, string>>(temp);
-                //temp.Split('&').ToList().ForEach(t =>
-                //{
-                //    var r = t.Split("=");
-                //    requestBody.Add(r[0], r[1]);
-                //});
             }
 
             // TODO: get from query string, code, new password, 
@@ -1244,8 +1240,8 @@ namespace IssuerOfClaims.Controllers
             var user = confirmEmail.User;
             try
             {
-                var ir = _userManager.RemovePasswordAsync(user).Result;
-                var nir = _userManager.AddPasswordAsync(user, password).Result;
+                _userManager.RemovePasswordAsync(user);
+                _userManager.AddPasswordAsync(user, password);
                 confirmEmail.IsConfirmed = true;
                 _emailDbServices.Update(confirmEmail);
             }
