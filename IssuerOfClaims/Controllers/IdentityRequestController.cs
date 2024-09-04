@@ -1234,7 +1234,7 @@ namespace IssuerOfClaims.Controllers
             var confirmEmail = _emailDbServices.GetByCode(code);
             if (!confirmEmail.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
                 return StatusCode(500, "something inside this process is wrong!");
-            if (confirmEmail.ExpiryTime.HasValue || confirmEmail.ExpiryTime < DateTime.Now)
+            if (!confirmEmail.ExpiryTime.HasValue || confirmEmail.ExpiryTime < DateTime.Now)
                 return StatusCode(500, "error with email's expired time!");
 
             var user = confirmEmail.User;
