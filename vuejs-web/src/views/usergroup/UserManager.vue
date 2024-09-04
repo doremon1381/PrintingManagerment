@@ -140,15 +140,16 @@ function UnloadProgressLine() {
     isLoading.value = false;
 }
 
-function UpdateUsers(){
-    LoadProgressLine();
-    
+function AssembleDeletedOrModifiedUsers()
+{
     const deleted : Array<User> = drafUsers.value.filter(u => u.IsDeleted == true);
     const modified : Array<User> = drafUsers.value.filter(u => u.IsModified == true);
 
     let currentModified: Array<User> = [];
     
     console.log(modified);
+    // TODO: IsDeleted attribute is saved on draf list, for handling deleted user, 
+    //     : attribute attribute is also saved on draf list, but the changing value is saved in the users list which is used for data table
     modified.forEach(u => {
         let s = getUsers.value.find(x => x.Username == u.Username);
         if (s != undefined){
@@ -160,8 +161,17 @@ function UpdateUsers(){
 
     currentModified.push(...deleted);
 
-        console.log(currentModified);
-    useAxiosPostWithAccessToken('/users/update', currentModified, (response) => {
+    return currentModified;
+}
+
+function UpdateUsers(){
+    LoadProgressLine();    
+
+    let editedUsers = AssembleDeletedOrModifiedUsers();
+
+    console.log(editedUsers);
+    // TODO: reload data table
+    useAxiosPostWithAccessToken('/users/update', editedUsers, (response) => {
         console.log(response);
     }, () => {
         //router.go(0);
