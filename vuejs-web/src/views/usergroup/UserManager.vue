@@ -40,7 +40,7 @@ useAxiosGetWithAccessToken("/users/all", response => {
     drafUsers.value = serializeUsers(response.data);
     nextTick();
 
-    isLoading.value = false;
+    UnloadProgressLine();
 // },()=>{}, (error) => {
 //     errorMessage.value = error.response?.data;
 //     isActive.value = true;
@@ -164,7 +164,14 @@ function UpdateUsers(){
     useAxiosPostWithAccessToken('/users/update', currentModified, (response) => {
         console.log(response);
     }, () => {
-        router.go(0);
+        //router.go(0);
+        useAxiosGetWithAccessToken("/users/all", response => {
+            users.value = serializeUsers(response.data);
+            drafUsers.value = serializeUsers(response.data);
+            nextTick();
+        });
+        UnloadProgressLine();
+
     }, (error) => {
         errorMessage.value = error.message;
     });
