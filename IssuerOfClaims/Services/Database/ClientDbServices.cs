@@ -1,17 +1,18 @@
 ﻿using Google.Apis.Auth.OAuth2;
+using IssuerOfClaims.Database;
 using IssuerOfClaims.Database.Model;
 using Microsoft.EntityFrameworkCore;
 using PrMDbModels;
 
-namespace IssuerOfClaims.Database
+namespace IssuerOfClaims.Services.Database
 {
-    public class PrMClientDbServices : DbTableBase<PrMClient>, IPrMClientDbServices
+    public class ClientDbServices : DbTableBase<PrMClient>, IClientDbServices
     {
         private DbSet<PrMClient> _PrMClients { get; set; }
 
-        public PrMClientDbServices(IPrMAuthenticationContext dbContext) : base(dbContext)
+        public ClientDbServices(IDbContextManager dbContext) : base(dbContext)
         {
-            _PrMClients = this._DbModels;
+            _PrMClients = _DbModels;
         }
 
         // TODO: will remove
@@ -36,7 +37,7 @@ namespace IssuerOfClaims.Database
         }
     }
 
-    public interface IPrMClientDbServices: IDbContextBase<PrMClient>
+    public interface IClientDbServices : IDbContextBase<PrMClient>
     {
         //List<PrMClient> GetAllClientWithRelation();
         PrMClient GetByIdAndSecret(string id, string secret);

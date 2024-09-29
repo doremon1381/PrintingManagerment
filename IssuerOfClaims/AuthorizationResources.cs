@@ -1,9 +1,10 @@
-﻿using IssuerOfClaims.Database;
-using IssuerOfClaims.Database.Model;
+﻿using IssuerOfClaims.Database.Model;
 using PrMServerUltilities.Extensions;
 using Microsoft.EntityFrameworkCore;
 using PrMDbModels;
 using PrMServerUltilities.Identity;
+using IssuerOfClaims.Services.Database;
+using IssuerOfClaims.Database;
 
 namespace IssuerOfClaims
 {
@@ -16,13 +17,9 @@ namespace IssuerOfClaims
         /// <returns></returns>
         internal static bool CreateClient(IConfigurationManager configuration)
         {
-            var contextOptions = new DbContextOptionsBuilder<PrMAuthenticationContext>()
-                 .UseSqlServer(configuration.GetConnectionString(DbUltilities.DatabaseName))
-                 .Options;
+            DbContextManager dbContext = CreateDbContext(configuration);
 
-            var dbContext = new PrMAuthenticationContext(contextOptions, null);
-
-            var clientDb = new PrMClientDbServices(dbContext);
+            var clientDb = new ClientDbServices(dbContext);
             var clients = clientDb.GetAll();
 
             if (clients.Count == 0)
@@ -63,6 +60,16 @@ namespace IssuerOfClaims
             var roles = dbContext.PrMRoles.ToList();
 
             return true;
+        }
+
+        private static DbContextManager CreateDbContext(IConfigurationManager configuration)
+        {
+            var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
+                 .UseSqlServer(configuration.GetConnectionString(DbUltilities.DatabaseName))
+                 .Options;
+
+            var dbContext = new DbContextManager(contextOptions, null);
+            return dbContext;
         }
     }
 }

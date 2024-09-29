@@ -1,5 +1,4 @@
 ﻿using IssuerOfClaims.Controllers.Ultility;
-using IssuerOfClaims.Database;
 using PrMServerUltilities.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services;
@@ -26,6 +25,7 @@ using Microsoft.AspNetCore.Cors;
 using System;
 using IssuerOfClaims.Database.Model;
 using Microsoft.EntityFrameworkCore;
+using IssuerOfClaims.Services.Database;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -46,25 +46,25 @@ namespace IssuerOfClaims.Controllers
         private readonly IConfigurationManager _configuration;
         private readonly IConfirmEmailDbServices _emailDbServices;
         private readonly MailSettings _mailSettings;
-        private readonly IPrMLoginSessionManager _loginSessionManager;
-        private readonly IPrMClientDbServices _clientDbServices;
-        private readonly IPrMRoleDbServices _roleDbServices;
+        private readonly ITokenResponseDbServices _tokenResponseDbServices;
+        private readonly ITokenRequestSessionDbServices _tokenRequestSessionDbServices;
+        private readonly ITokenRequestHandlerDbServices _tokenRequestHandlerDbServices;
+        private readonly IClientDbServices _clientDbServices;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
-            , UserManager<PrMUser> userManager, IPrMLoginSessionManager loginSessionManager
-            , IConfirmEmailDbServices emailDbServices, MailSettings mailSettings, IPrMClientDbServices clientDbServices, IPrMRoleDbServices roleDbServices)
+            , UserManager<PrMUser> userManager, ITokenRequestSessionDbServices requestSessionDbServices, ITokenResponseDbServices tokenResponseDbServices, ITokenRequestHandlerDbServices tokenRequestHandlerDbServices
+            , IConfirmEmailDbServices emailDbServices, MailSettings mailSettings, IClientDbServices clientDbServices)
         {
             _logger = logger;
             _configuration = configuration;
-            //_httpClientFactory = httpClientFactory;
 
-            //_userDbServices = userDbServices;
-            _roleDbServices = roleDbServices;
             _userManager = userManager;
             _emailDbServices = emailDbServices;
             _mailSettings = mailSettings;
 
-            _loginSessionManager = loginSessionManager;
+            _tokenRequestSessionDbServices = requestSessionDbServices;
+            _tokenResponseDbServices = tokenResponseDbServices;
+            _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
             _clientDbServices = clientDbServices;
         }
 
@@ -78,6 +78,125 @@ namespace IssuerOfClaims.Controllers
         [Authorize]
         public async Task<ActionResult> AuthorizationAsync()
         {
+            try
+            {
+                // 1. Get authorization request from server
+                // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
+                //    if asking for google, then send a redirect to google to get authorization code
+                //    if basic access (I mean implicit grant - form_post or not), then return a redirect to another request to identity server - send request to "authentication/basicAccess" route
+                // 3.
+                var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
+
+
+                // TODO: from https://openid.net/specs/openid-connect-prompt-create-1_0.html
+                //     : When the prompt parameter is used in an authorization request to the authorization endpoint with the value of create,
+                //     : it indicates that the user has chosen to be shown the account creation experience rather than the login experience
+                requestQuerry.GetFromQueryString(AuthorizeRequest.Prompt, out string prompt);
+
+                // TODO: try to add nonce in flow, will check it late
+                //     : because "state" still RECOMMENDED in some case, so I will use it when it's provided for identity server
+                requestQuerry.GetFromQueryString(AuthorizeRequest.State, out string state);
+
+                // TODO: try to add nonce in flow, will check it late
+                //     : because "nonce" still OPTIONAL in some case, so I will use it when it's provided for identity server
+                requestQuerry.GetFromQueryString(AuthorizeRequest.Nonce, out string nonce);
+
+                //TODO: base on scope, I will add claims in id token, so it will need to be verified with client's scope in memory or database
+                //    : Verify that a scope parameter is present and contains the openid scope value.
+                //    : (If no openid scope value is present, the request may still be a valid OAuth 2.0 request but is not an OpenID Connect request.)
+                requestQuerry.GetFromQueryString(AuthorizeRequest.Scope, out string scope);
+                scope = System.Uri.UnescapeDataString(scope);
+
+                // TODO: need to compare with existing client in memory or database
+                requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
+                if (string.IsNullOrEmpty(clientId))
+                    return StatusCode(400, "client id is mismatch!");
+
+                var client = _clientDbServices.GetById(clientId);
+                if (client == null)
+                    return StatusCode(400, "client id is wrong!");
+                string[] redirectUris = client.RedirectUris.Split(",");
+                // TODO: because in implicit grant flow, redirectUri is use to redirect to user-agent, 
+                //     : in logically, client does not know it before user-agent send a redirect_uri to client
+                //     : with browser's work, I think many browser can be user-agent, so it will be safe when client asks for redirect_uri from user-agent
+                requestQuerry.GetFromQueryString(AuthorizeRequest.RedirectUri, out string redirectUri);
+                redirectUri = System.Uri.UnescapeDataString(redirectUri);
+                if (string.IsNullOrEmpty(redirectUri))
+                    return StatusCode(400, "Redirect uri is need for send a response back to where it needs!");
+                if (!redirectUris.Contains(redirectUri))
+                    return StatusCode(400, "redirectUri is mismatch!");
+
+                if (string.IsNullOrEmpty(scope))
+                    return StatusCode(ProtectedResourceErrors.InsufficientScope.StatusCodeWithError(), ProtectedResourceErrors.InsufficientScope);
+
+                //if (string.IsNullOrEmpty(state))
+                //    return StatusCode(400, "State of request must be implemented to avoid cross-site request forgery!");
+                // https://openid.net/specs/openid-connect-prompt-create-1_0.html
+                // TODO: validate propmt need to wait
+                if (!string.IsNullOrEmpty(prompt)
+                    && prompt.Equals("create"))
+                {
+                    return await RegisterUserAsync(requestQuerry, state, scope, nonce, redirectUri, clientId);
+                }
+
+                //var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
+
+                // TODO: why code is not included in request's header,
+                //     : because I like it to be include in query's string!
+                if (!HttpContext.Request.QueryString.HasValue)
+                    return StatusCode(400, "Request must containt query string for authorization!");
+
+                requestQuerry.GetFromQueryString(AuthorizeRequest.ResponseType, out string responseType);
+
+                // check response type
+                if (string.IsNullOrEmpty(responseType))
+                    return StatusCode(400, "Response type can not be null or empty!");
+                if (!Constants.SupportedResponseTypes.Contains(responseType))
+                    return StatusCode(400, "response type is not support. String input maybe wrong!");
+
+                // check response mode
+                requestQuerry.GetFromQueryString(AuthorizeRequest.ResponseMode, out string responseMode);
+
+                // TODO: by default when response mode is not set for response type is , use 
+                if (string.IsNullOrEmpty(responseMode))
+                    responseMode = GetDefaultResponseModeByResponseType(responseType);
+
+                var headers = HttpContext.Request.Headers;
+
+
+                if (scope.Contains(IdentityServerConstants.StandardScopes.OpenId))
+                    switch (responseType)
+                    {
+                        case ResponseTypes.Code:
+                            return await IssueAuthorizationCodeAsync(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
+                        //break;
+                        case ResponseTypes.IdToken:
+                            return await ImplicitGrantWithFormPostAsync(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
+                        //break;
+                        // TODO: will implement another flow if I have time
+                        default:
+                            break;
+                    }
+                else
+                {
+                    // TODO: if in scope doesnot have openid, it still valid in some case but it's not an Authentication Request that use Oauth2 as standard
+                    return StatusCode(500, "Not yet know why...");
+                }
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            return StatusCode(500, "Not yet know why...");
+        }
+
+        // TODO: will fix it later
+        [HttpPost("register")]
+        [Authorize]
+        public async Task<ActionResult> RegisterIdentity()
+        {
+
             // 1. Get authorization request from server
             // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
             //    if asking for google, then send a redirect to google to get authorization code
@@ -136,55 +255,13 @@ namespace IssuerOfClaims.Controllers
             {
                 return await RegisterUserAsync(requestQuerry, state, scope, nonce, redirectUri, clientId);
             }
-
-            //var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
-
-            // TODO: why code is not included in request's header,
-            //     : because I like it to be include in query's string!
-            if (!HttpContext.Request.QueryString.HasValue)
-                return StatusCode(400, "Request must containt query string for authorization!");
-
-            requestQuerry.GetFromQueryString(AuthorizeRequest.ResponseType, out string responseType);
-
-            // check response type
-            if (string.IsNullOrEmpty(responseType))
-                return StatusCode(400, "Response type can not be null or empty!");
-            if (!Constants.SupportedResponseTypes.Contains(responseType))
-                return StatusCode(400, "response type is not support. String input maybe wrong!");
-
-            // check response mode
-            requestQuerry.GetFromQueryString(AuthorizeRequest.ResponseMode, out string responseMode);
-
-            // TODO: by default when response mode is not set for response type is , use 
-            if (string.IsNullOrEmpty(responseMode))
-                responseMode = GetDefaultResponseModeByResponseType(responseType);
-
-            var headers = HttpContext.Request.Headers;
-
-
-            if (scope.Contains(IdentityServerConstants.StandardScopes.OpenId))
-                switch (responseType)
-                {
-                    case ResponseTypes.Code:
-                        return await AuthorizationCodeFlowAsync(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
-                    //break;
-                    case ResponseTypes.IdToken:
-                        return await ImplicitGrantWithFormPostAsync(requestQuerry, responseMode, redirectUri, state, scope, nonce, clientId, headers);
-                    //break;
-                    // TODO: will implement another flow if I have time
-                    default:
-                        break;
-                }
             else
             {
-                // TODO: if in scope doesnot have openid, it still valid in some case but it's not an Authentication Request that use Oauth2 as standard
+                return StatusCode(500);
             }
-
-
-            return StatusCode(500, "Not yet know why...");
         }
 
-        #region authorization code flow
+        #region Issue authorization code
         /// <summary>
         /// TODO: Authorization Server Authenticates End-User: https://openid.net/specs/openid-connect-core-1_0.html
         /// </summary>
@@ -196,7 +273,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="nonce"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> AuthorizationCodeFlowAsync(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
+        private async Task<ActionResult> IssueAuthorizationCodeAsync(string[] requestQuerry, string responseMode, string redirectUri, string state, string scope, string nonce, string clientId, IHeaderDictionary headers)
         {
             // TODO: comment for now
             //     : by using AuthenticateHanlder, in this step, authenticated is done
@@ -204,69 +281,47 @@ namespace IssuerOfClaims.Controllers
 
             // By using [Authorize], in this step, user in httpcontext must be set before this
             var userClaims = HttpContext.User;
-
-            // TODO: create authorization code
-            var authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
-            // TODO: by using authorization before this part, so it should has an user in HttpContext
             var user = await _userManager.GetUserAsync(userClaims);
-
             var client = _clientDbServices.GetById(clientId);
-            if (client == null)
-                return StatusCode(400, "clientid may wrong!");
-            if (!VerifyScope(scope, client))
-                return StatusCode(400, "scope is not allowed!");
 
-            // TODO: add authorization code to loginSession
-            // TODO: set loginSession info
-            var sessionAndResponse = _loginSessionManager.CreateUserLoginSession(user, client);
-
-            requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallenge, out string codeChallenge);
-            requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallengeMethod, out string codeChallengeMethod);
-            //requestQuerry.GetFromQueryString("client_state", out string clientState);
-
-            sessionAndResponse.TokenRequestSession.CodeChallengeMethod = codeChallengeMethod;
-            sessionAndResponse.TokenRequestSession.CodeChallenge = codeChallenge;
-            sessionAndResponse.TokenRequestSession.AuthorizationCode = authorizationCode;
-            sessionAndResponse.TokenRequestSession.Nonce = nonce;
-            //sessionAndResponse.LoginSession.ClientState = clientState;
-            sessionAndResponse.TokenRequestSession.Scope = scope;
-            sessionAndResponse.TokenRequestSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
-
-            _loginSessionManager.UpdateLoginSessionWithRelation(sessionAndResponse);
+            ACF_I_VerifyClient(scope, client);
+            ACF_I_CreateTokenRequestSession(requestQuerry, scope, nonce, user, client, out string authorizationCode);
 
             // Create a custom response object
-            var responseBody = new
+            object responseBody = new
             {
                 state = state,
                 code = authorizationCode
             };
 
+            ACF_I_AddResponseStatus(200);
+
+            return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(responseBody));
+        }
+
+        private void ACF_I_AddResponseStatus(int statusCode)
+        {
             // TODO: change for now
-            HttpContext.Response.StatusCode = 200;
+            HttpContext.Response.StatusCode = statusCode;
             // TODO: has error
             //HttpContext.Response.Headers.Append("state", state);
 
-            // TODO: I don't know why if add "Location" as key in response header, the response will be sent in vuejs's web is with status code 200,
+            // TODO: I don't know why if add "Location" as key in response header, the response will be sent to vuejs's web is with status code 200,
             //     : but if I modify the name, for example, to "Location1", then the response will has status code 302 as I set to it before...
-            HttpContext.Response.Headers.Append("location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
-            // Serialize the custom response object to JSON and write it to the response body
-            await HttpContext.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(responseBody));
-
-            return new EmptyResult();
-            // TODO: return to client authorization code, this code is one time to use
-            //     : client will use token endpoint and send authorization code to get access token and id token
-            //     : client can use access token to send request to user_info endpoint to get user info, but currently not implement this function
-
-            // TODO: implement jwt access token instead of a string encoded with base64
-            //     : https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-
-            //return StatusCode(200, authorizationCode);
+            //HttpContext.Response.Headers.Append("location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
         }
 
-        private bool VerifyScope(string scope, PrMClient client)
+        private void ACF_I_VerifyClient(string scopes, PrMClient client)
         {
-            scope = System.Uri.UnescapeDataString(scope);
-            foreach (var s in scope.Split(" "))
+            if (client.Id == 0)
+                throw new InvalidDataException("clientid may wrong!");
+            if (!ACF_I_IsSimilarWithClientScopes(scopes, client))
+                throw new InvalidDataException("scope is not allowed!");
+        }
+        private bool ACF_I_IsSimilarWithClientScopes(string scopes, PrMClient client)
+        {
+            var variables = System.Uri.UnescapeDataString(scopes).Split(" ");
+            foreach (var s in variables)
             {
                 if (!client.AllowedScopes.Contains(s))
                     return false;
@@ -274,301 +329,44 @@ namespace IssuerOfClaims.Controllers
             return true;
         }
 
-        private async Task<ActionResult> GetAccessTokenFromAuthorizationCodeAsync(Dictionary<string, string> requestBody)
+        private void ACF_I_CreateTokenRequestSession(string[] requestQuerry, string scope, string nonce, PrMUser user, PrMClient client, out string authorizationCode)
         {
-            // TODO: get from queryString, authorization code
-            //     : get user along with authorization code inside latest login session (of that user)
-            //     : create access token and id token, send it to client
+            var ACFProcessSession = _tokenRequestSessionDbServices.CreateTokenRequestSession();
+            var tokenRequestHandler = new TokenRequestHandler();
 
-            var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
+            _tokenRequestHandlerDbServices.Create(tokenRequestHandler);
+            tokenRequestHandler.TokenRequestSession = ACFProcessSession;
 
-            string authorizationCode = requestBody[TokenRequest.Code];
-            if (string.IsNullOrEmpty(authorizationCode))
-                return StatusCode(400, "authorization code is missing!");
+            ACF_I_AddPKCERequestedParams(requestQuerry, tokenRequestHandler);
+            ACF_I_AddRequestSessionDetailts(scope, nonce, user, client, tokenRequestHandler, out authorizationCode);
 
-            // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
-            //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var loginSession = _loginSessionManager.FindByAuthorizationCode(authorizationCode);
-
-            // TODO: Authenticate the Client if it was issued Client Credentials or if it uses another Client Authentication method, per Section 9.
-            //     : Ensure the Authorization Code was issued to the authenticated Client.
-            if (loginSession == null)
-                return StatusCode(500, "unknown");
-
-            //Verify that the Authorization Code is valid.
-            //If possible, verify that the Authorization Code has not been previously used.
-            if (!loginSession.TokenRequestSession.IsInLoginSession)
-                // TODO: status code may wrong
-                return StatusCode(500, "login session is end!");
-
-            string clientId = requestBody[TokenRequest.ClientId];
-            string clientSecret = requestBody[TokenRequest.ClientSecret];
-            if (string.IsNullOrEmpty(clientId)
-                || string.IsNullOrEmpty(clientSecret))
-                return StatusCode(400, "client credentials's info is missing!");
-
-            var client = _clientDbServices.GetByIdAndSecret(clientId, clientSecret);
-            if (!loginSession.TokenRequestSession.Client.Id.Equals(client.Id))
-                // TODO: status code may wrong
-                return StatusCode(400, "something wrong with client which Authorization Code was issued to!");
-
-            //Ensure that the redirect_uri parameter value is identical to the redirect_uri parameter value that was included in the initial Authorization Request.
-            //If the redirect_uri parameter value is not present when there is only one registered redirect_uri value,
-            //the Authorization Server MAY return an error(since the Client should have included the parameter) or MAY proceed without an error(since OAuth 2.0 permits the parameter to be omitted in this case).
-            string[] redirectUris = client.RedirectUris.Split(",");
-            var redirectUri = requestBody[TokenRequest.RedirectUri];
-            if (!redirectUris.Contains(redirectUri))
-                return StatusCode(400, "redirect_uri is mismatch!");
-
-            // TODO: by default, those two go along together, it may wrong in future coding
-            if (loginSession.TokenRequestSession.CodeChallenge != null && loginSession.TokenRequestSession.CodeChallengeMethod != null)
-            {
-                var codeVerifier = requestBody[TokenRequest.CodeVerifier];
-                if (string.IsNullOrEmpty(codeVerifier))
-                    return StatusCode(400, "code challenge is included in authorization code request but does not have in access token request!");
-
-                var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.WithSHA265());
-                if (!code_challenge.Equals(loginSession.TokenRequestSession.CodeChallenge))
-                    return StatusCode(400, "code verifier is wrong!");
-            }
-
-            if (loginSession.TokenRequestSession.IsInLoginSession)
-            {
-                //var user = _userDbServices.GetUserWithTokenResponse(loginSession.User.UserName);
-                var user = _userManager.Users.Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse).FirstOrDefault(u => u.UserName == loginSession.User.UserName);
-                // TODO: get all login session belong to user with a particular client, but not other client
-                var latestLoginSession = user.LoginSessionsWithResponse
-                    .Where(l => l.TokenRequestSession != null && l.TokenRequestSession.Client.ClientId == clientId && l.TokenResponse != null)
-                    .LastOrDefault();
-                // TODO: at this step, need to check offline_access is inside authrization login request is true or fault
-                //     : if fault, then response will not include refresh token
-                //     : if true, then add refresh token along with response
-
-                object responseBody = new object();
-
-                if (latestLoginSession != null)
-                {
-                    //var tokenResponse = _loginSessionManager.CreateTokenResponse(latestLoginSession);
-                    //var scope = HttpUtility
-                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client.ClientId);
-                    bool isOfflineAccess = loginSession.TokenRequestSession.IsOfflineAccess;
-                    if (isOfflineAccess)
-                    {
-                        // TODO: latest token response does not have refresh token
-                        if (latestLoginSession.TokenResponse.RefreshTokenExpiried == null)
-                        {
-                            // TODO: latest access token can be used
-                            if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now)
-                            {
-                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                                tokenResponse.AccessToken = access_token;
-                                tokenResponse.IdToken = id_token;
-                                tokenResponse.AccessTokenExpiried = latestLoginSession.TokenResponse.AccessTokenExpiried;
-                                tokenResponse.RefreshToken = refresh_token;
-                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
-
-                                responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token,
-                                    // TODO: count the remaining seconds which the access token can be usefull
-                                    (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds,
-                                    tokenResponse.RefreshToken);
-                            }
-                            // TODO: latest access token can not be re-used, expired
-                            else
-                            {
-                                // TODO; if expired, create new
-                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                                tokenResponse.AccessToken = latestLoginSession.TokenResponse.AccessToken;
-                                tokenResponse.IdToken = id_token;
-                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                                tokenResponse.RefreshToken = refresh_token;
-                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
-
-                                responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600, tokenResponse.RefreshToken);
-                            }
-                        }
-                        // TODO: latest token response has refresh token
-                        else
-                        {
-                            // TODO: access token and refresh token can be re-used 
-                            if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now
-                                && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
-                            {
-                                responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token,
-                                    // TODO: count the remaining seconds which the access token can be usefull
-                                    (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds,
-                                    latestLoginSession.TokenResponse.RefreshToken);
-                            }
-                            // TODO: has error in this part, but I will fix it later
-                            // TODO: refresh token can be re-used, but not access token
-                            else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
-                                    && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
-                            {
-                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                                tokenResponse.AccessToken = access_token;
-                                tokenResponse.IdToken = id_token;
-
-                                // TODO: access token expired time may over the refresh token expired time
-                                TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
-                                if (diff.TotalSeconds < 3600)
-                                    tokenResponse.AccessTokenExpiried = DateTime.Now.AddSeconds(diff.TotalSeconds);
-                                else
-                                    tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-
-                                var refresh_token = latestLoginSession.TokenResponse.RefreshToken;
-                                if (string.IsNullOrEmpty(refresh_token))
-                                    refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                                tokenResponse.RefreshToken = refresh_token;
-                                DateTime expiredIn = DateTime.Now;
-                                if (latestLoginSession.TokenResponse.RefreshTokenExpiried != null)
-                                {
-                                    //TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
-                                    //double seconds = diff.TotalSeconds;
-
-                                    //expiredIn.AddSeconds(seconds);
-                                    expiredIn = latestLoginSession.TokenResponse.RefreshTokenExpiried.Value;
-                                }
-
-                                tokenResponse.RefreshTokenExpiried = expiredIn;
-
-                                responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token, 3600, tokenResponse.RefreshToken);
-
-                                loginSession.TokenResponse = tokenResponse;
-                            }
-                            // TODO: neither access token and refresh token cant be re-used
-                            else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
-                                && latestLoginSession.TokenResponse.RefreshTokenExpiried < DateTime.Now)
-                            {
-                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                                tokenResponse.AccessToken = access_token;
-                                tokenResponse.IdToken = id_token;
-                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                                tokenResponse.RefreshToken = refresh_token;
-                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
-
-                                responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
-                            }
-                            else if (latestLoginSession.TokenResponse.AccessTokenExpiried > DateTime.Now
-                                && latestLoginSession.TokenResponse.RefreshTokenExpiried < DateTime.Now)
-                            {
-                                // TODO
-                                var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-                                string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                                tokenResponse.AccessToken = access_token;
-                                tokenResponse.IdToken = id_token;
-                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                                tokenResponse.RefreshToken = refresh_token;
-                                tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
-
-                                responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
-                            }
-                        }
-                    }
-                    else if (!isOfflineAccess)
-                    {
-                        if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now)
-                        {
-                            responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600);
-                        }
-                        else
-                        {
-                            // TODO: re-authenticate
-                            var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                            string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                            tokenResponse.AccessToken = access_token;
-                            tokenResponse.IdToken = id_token;
-                            tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                            loginSession.TokenResponse = tokenResponse;
-
-                            responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600);
-                        }
-                    }
-
-                    loginSession.TokenRequestSession.IsInLoginSession = false;
-                    _loginSessionManager.UpdateInsideTokenResponse(loginSession);
-                    _loginSessionManager.UpdateLoginSessionWithRelation(loginSession);
-
-                    return Ok(JsonConvert.SerializeObject(responseBody));
-                }
-                else if (loginSession.TokenResponse == null)
-                {
-                    bool isOfflineAccess = loginSession.TokenRequestSession.IsOfflineAccess;
-                    var tokenResponse = _loginSessionManager.CreateTokenResponse(loginSession);
-                    var id_token = GenerateIdToken(user, loginSession.TokenRequestSession.Scope, loginSession.TokenRequestSession.Nonce, client.ClientId);
-                    string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-                    tokenResponse.AccessToken = access_token;
-                    tokenResponse.IdToken = id_token;
-
-                    if (isOfflineAccess)
-                    {
-                        string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-                        tokenResponse.RefreshToken = refresh_token;
-                        tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                        tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
-
-                        responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
-                    }
-                    else
-                    {
-                        responseBody = CreateTokenResponseBody(access_token, id_token, 3600);
-                    }
-
-                    loginSession.TokenResponse = tokenResponse;
-
-                    loginSession.TokenRequestSession.IsInLoginSession = false;
-
-                    // TODO: will check later
-                    _loginSessionManager.UpdateInsideTokenResponse(loginSession);
-                    _loginSessionManager.UpdateLoginSessionWithRelation(loginSession);
-
-                    return Ok(JsonConvert.SerializeObject(responseBody));
-                    // TODO: return access token and refresh token is empty if refresh token is still date
-                    //     : create new access token, return along with refresh token has value if refresh token is expired
-                }
-            }
-
-            return StatusCode(200);
+            _tokenRequestSessionDbServices.Update(ACFProcessSession);
+            _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
         }
 
-        private static object CreateTokenResponseBody(string access_token, string id_token, double expired_in, string refresh_token = "")
+        private void ACF_I_AddRequestSessionDetailts(string scope, string nonce, PrMUser user, PrMClient client, TokenRequestHandler sessionAndResponse, out string authorizationCode)
         {
-            object responseBody;
-            if (string.IsNullOrEmpty(refresh_token))
-            {
-                responseBody = new
-                {
-                    access_token = access_token,
-                    id_token = id_token,
-                    token_type = "Bearer",
-                    // TODO: set by seconds
-                    expires_in = expired_in
-                };
-            }
-            else
-                responseBody = new
-                {
-                    access_token = access_token,
-                    id_token = id_token,
-                    refresh_token = refresh_token,
-                    token_type = "Bearer",
-                    // TODO: set by seconds
-                    expires_in = expired_in
-                };
+            // TODO: create authorization code
+            authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
 
-            return responseBody;
+            sessionAndResponse.TokenRequestSession.AuthorizationCode = authorizationCode;
+            sessionAndResponse.TokenRequestSession.Nonce = nonce;
+            sessionAndResponse.TokenRequestSession.Scope = scope;
+            sessionAndResponse.TokenRequestSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
+
+            sessionAndResponse.TokenRequestSession.Client = client;
+            sessionAndResponse.User = user;
+        }
+
+        private void ACF_I_AddPKCERequestedParams(string[] requestQuerry, TokenRequestHandler sessionAndResponse)
+        {
+            requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallenge, out string codeChallenge);
+            requestQuerry.GetFromQueryString(AuthorizeRequest.CodeChallengeMethod, out string codeChallengeMethod);
+
+            if (!string.IsNullOrEmpty(codeChallengeMethod))
+                sessionAndResponse.TokenRequestSession.CodeChallengeMethod = codeChallengeMethod;
+            if (!string.IsNullOrEmpty(codeChallenge))
+                sessionAndResponse.TokenRequestSession.CodeChallenge = codeChallenge;
         }
         #endregion
 
@@ -707,9 +505,14 @@ namespace IssuerOfClaims.Controllers
                 //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
                 var idToken = GenerateIdToken(user, scope, nonce, clientId);
 
-                var loginSession = _loginSessionManager.CreateUserLoginSession(user, client);
+                var tokenRequestSession = _tokenRequestSessionDbServices.CreateTokenRequestSession();
+                var tokenRequestHandler = _tokenRequestHandlerDbServices.CreateTokenRequestHandler();
+                var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
 
-                loginSession.TokenResponse.IdToken = idToken;
+                // TODO: update must follow order, I will explain late
+                IGF_UpdateTokenResponse(idToken, tokenResponse);
+                IGF_UpdateRequestSession(client, tokenRequestSession);
+                IGF_UpdateTokenRequestHandler(user, tokenRequestSession, tokenRequestHandler);
 
                 // Check response mode to know what kind of response is going to be used
                 // return a form_post, url fragment or body of response
@@ -749,6 +552,31 @@ namespace IssuerOfClaims.Controllers
 
 
             return StatusCode(200, "every thing is done!");
+        }
+
+        private void IGF_UpdateTokenRequestHandler(PrMUser user, TokenRequestSession tokenRequestSession, TokenRequestHandler tokenRequestHandler)
+        {
+            tokenRequestHandler.User = user;
+            tokenRequestHandler.TokenRequestSession = tokenRequestSession;
+
+            _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
+        }
+
+        private void IGF_UpdateTokenResponse(string idToken, PrMDbModels.TokenResponse tokenResponse)
+        {
+            tokenResponse.IdToken = idToken;
+
+            _tokenResponseDbServices.Update(tokenResponse);
+        }
+
+        private void IGF_UpdateRequestSession(PrMClient client, TokenRequestSession tokenRequestSession)
+        {
+            tokenRequestSession.Client = client;
+            tokenRequestSession.Scope = client.AllowedScopes;
+            tokenRequestSession.IsInLoginSession = false;
+            tokenRequestSession.IsOfflineAccess = false;
+
+            _tokenRequestSessionDbServices.Update(tokenRequestSession);
         }
 
         /// <summary>
@@ -804,6 +632,7 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
+        #region Issue token
         [HttpGet("token")]
         // TODO: by oauth flow, only client can use this 
         [Authorize]
@@ -823,16 +652,44 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> TokenEndpointPostAsync()
         {
-            // TODO: for now, only response to authorization code request to access token
-            //     : need to implement another action
-            //     : send back access_token when have request refresh 
-            //if (!string.IsNullOrEmpty(HttpContext.Request.QueryString.Value))
-            //    return StatusCode(400, "querry string must have for token request!");
+            try
+            {
+                // TODO: for now, only response to authorization code request to access token
+                //     : need to implement another action
+                //     : send back access_token when have request refresh 
+                //if (!string.IsNullOrEmpty(HttpContext.Request.QueryString.Value))
+                //    return StatusCode(400, "querry string must have for token request!");
 
-            //var requestQuerry = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
+                Dictionary<string, string> requestBody = await TokenResponse_GetRequestBodyAsync();
 
-            Dictionary<string, string> requestBody = new Dictionary<string, string>();
+                //string refreshToken = requestBody.FirstOrDefault(c => c.StartsWith(GrantTypes.RefreshToken)).Split("=")[1];
+                // TODO: will fix it later
+                string grantType = requestBody[TokenRequest.GrantType];
 
+                switch (grantType)
+                {
+                    case OidcConstants.GrantTypes.RefreshToken:
+                        {
+                            // TODO: return new accesstoken using refresh token if it's not expired
+                            //var loginSessionWithToken = _tokenRequestManager.FindByRefreshToken(grantType);
+
+                            return StatusCode(500, "not implement exception!");
+                        }
+                    case OidcConstants.GrantTypes.AuthorizationCode:
+                        return await IssueAccessTokenForAuthorizationCodeAsync(requestBody);
+                    default:
+                        return StatusCode(500, "Unknown error!");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        private async Task<Dictionary<string, string>> TokenResponse_GetRequestBodyAsync()
+        {
+            var requestBody = new Dictionary<string, string>();
             using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
             {
                 var temp = await reader.ReadToEndAsync();
@@ -844,29 +701,347 @@ namespace IssuerOfClaims.Controllers
             }
 
             if (requestBody.Count == 0)
-                return StatusCode(400, "body is missing!");
+                throw new InvalidDataException("body is missing!");
 
-            //string refreshToken = requestBody.FirstOrDefault(c => c.StartsWith(GrantTypes.RefreshToken)).Split("=")[1];
-            string grantType = requestBody[TokenRequest.GrantType];
+            return requestBody;
+        }
 
-            switch (grantType)
+        private async Task<ActionResult> IssueAccessTokenForAuthorizationCodeAsync(Dictionary<string, string> requestBody)
+        {
+            // TODO: get from queryString, authorization code
+            //     : get user along with authorization code inside latest login session (of that user)
+            //     : create access token and id token, send it to client
+
+            string authCode = GrantAccessToken_VerifyAndGetAuthCodeFromRequest(requestBody);
+
+            // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
+            //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
+            var tokenRequestHandler = _tokenRequestHandlerDbServices.FindByAuthorizationCode(authCode);
+
+            var client = GrantAccessToken_VerifyAndGetClient(requestBody, tokenRequestHandler);
+
+            GrantAccessToken_VerifyRequestParameters(requestBody, tokenRequestHandler, client);
+
+            var user = _userManager.Users
+                .Include(u => u.TokenRequestHandlers).ThenInclude(l => l.TokenResponse)
+                .Include(u => u.TokenRequestHandlers).ThenInclude(l => l.TokenRequestSession).ThenInclude(s => s.Client)
+                .FirstOrDefault(u => u.UserName == tokenRequestHandler.User.UserName);
+
+            // TODO: get all login session belong to user with a particular client
+            var latestLoginSession = user.TokenRequestHandlers
+                .FindLast(l => l.TokenRequestSession != null && l.TokenRequestSession.Client.ClientId == client.ClientId && l.TokenResponse != null);
+            //.LastOrDefault();
+
+            // TODO: at this step, need to check offline_access is inside authrization login request is true or fault
+            //     : if fault, then response will not include refresh token
+            //     : if true, then add refresh token along with response
+
+            object responseBody = new object();
+
+            // TODO: I want to reuse token response if it is not expired
+            if (latestLoginSession != null)
             {
-                case OidcConstants.GrantTypes.RefreshToken:
-                    {
-                        // TODO: return new accesstoken using refresh token if it's not expired
-                        var loginSessionWithToken = _loginSessionManager.FindByRefreshToken(grantType);
+                var id_token = GenerateIdToken(user, tokenRequestHandler.TokenRequestSession.Scope, tokenRequestHandler.TokenRequestSession.Nonce, client.ClientId);
+                bool isOfflineAccess = tokenRequestHandler.TokenRequestSession.IsOfflineAccess;
 
-                        return StatusCode(500, "not implement exception!");
+                if (isOfflineAccess)
+                {
+                    // TODO: latest token response does not have refresh token
+                    if (latestLoginSession.TokenResponse.RefreshTokenExpiried == null)
+                    {
+                        // TODO: latest access token can be used
+                        if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now)
+                        {
+                            var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
+                            tokenRequestHandler.TokenResponse = tokenResponse;
+
+                            string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                            tokenResponse.AccessToken = latestLoginSession.TokenResponse.AccessToken;
+                            tokenResponse.IdToken = id_token;
+                            tokenResponse.AccessTokenExpiried = latestLoginSession.TokenResponse.AccessTokenExpiried;
+                            tokenResponse.RefreshToken = refresh_token;
+                            tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                            responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token,
+                                // TODO: count the remaining seconds which the access token can be usefull
+                                (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds,
+                                tokenResponse.RefreshToken);
+                        }
+                        // TODO: latest access token can not be re-used, expired
+                        else
+                        {
+                            // TODO; if expired, create new
+                            var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
+                            tokenRequestHandler.TokenResponse = tokenResponse;
+
+                            string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                            string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                            tokenResponse.AccessToken = access_token;
+                            tokenResponse.IdToken = id_token;
+                            tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                            tokenResponse.RefreshToken = refresh_token;
+                            tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                            responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token, 3600, tokenResponse.RefreshToken);
+                        }
                     }
-                case OidcConstants.GrantTypes.AuthorizationCode:
-                    return await GetAccessTokenFromAuthorizationCodeAsync(requestBody);
-                default:
-                    return StatusCode(500, "Unknown error!");
+                    // TODO: latest token response has refresh token
+                    else
+                    {
+                        // TODO: access token and refresh token can be re-used 
+                        if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now
+                            && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
+                        {
+                            responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token,
+                                // TODO: count the remaining seconds which the access token can be usefull
+                                (latestLoginSession.TokenResponse.AccessTokenExpiried - DateTime.Now).Value.TotalSeconds,
+                                latestLoginSession.TokenResponse.RefreshToken);
+                        }
+                        // TODO: refresh token can be re-used, but not access token
+                        else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
+                                && latestLoginSession.TokenResponse.RefreshTokenExpiried >= DateTime.Now)
+                        {
+                            var tokenResponse = _tokenResponseDbServices.CreateTokenResponse(tokenRequestHandler);
+                            string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                            tokenResponse.AccessToken = access_token;
+                            tokenResponse.IdToken = id_token;
+
+                            // TODO: access token expired time may over the refresh token expired time
+                            TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
+                            if (diff.TotalSeconds < 3600)
+                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddSeconds(diff.TotalSeconds);
+                            else
+                                tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+
+                            var refresh_token = latestLoginSession.TokenResponse.RefreshToken;
+                            if (string.IsNullOrEmpty(refresh_token))
+                                refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                            tokenResponse.RefreshToken = refresh_token;
+                            DateTime expiredIn = DateTime.Now;
+                            if (latestLoginSession.TokenResponse.RefreshTokenExpiried != null)
+                            {
+                                //TimeSpan diff = (TimeSpan)(latestLoginSession.TokenResponse.RefreshTokenExpiried - DateTime.Now);
+                                //double seconds = diff.TotalSeconds;
+
+                                //expiredIn.AddSeconds(seconds);
+                                expiredIn = latestLoginSession.TokenResponse.RefreshTokenExpiried.Value;
+                            }
+
+                            tokenResponse.RefreshTokenExpiried = expiredIn;
+
+                            responseBody = CreateTokenResponseBody(tokenResponse.AccessToken, id_token, 3600, tokenResponse.RefreshToken);
+
+                            tokenRequestHandler.TokenResponse = tokenResponse;
+                        }
+                        // TODO: neither access token and refresh token cant be re-used
+                        else if (latestLoginSession.TokenResponse.AccessTokenExpiried < DateTime.Now
+                            && latestLoginSession.TokenResponse.RefreshTokenExpiried < DateTime.Now)
+                        {
+                            var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
+                            tokenRequestHandler.TokenResponse = tokenResponse;
+
+                            string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                            string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                            tokenResponse.AccessToken = access_token;
+                            tokenResponse.IdToken = id_token;
+                            tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                            tokenResponse.RefreshToken = refresh_token;
+                            tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                            responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
+                        }
+                        else if (latestLoginSession.TokenResponse.AccessTokenExpiried > DateTime.Now
+                            && latestLoginSession.TokenResponse.RefreshTokenExpiried < DateTime.Now)
+                        {
+                            var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
+                            tokenRequestHandler.TokenResponse = tokenResponse;
+
+                            string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                            string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                            tokenResponse.AccessToken = access_token;
+                            tokenResponse.IdToken = id_token;
+                            tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                            tokenResponse.RefreshToken = refresh_token;
+                            tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                            responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
+                        }
+                    }
+                }
+                else if (!isOfflineAccess)
+                {
+                    if (latestLoginSession.TokenResponse.AccessTokenExpiried >= DateTime.Now)
+                    {
+                        responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600);
+                    }
+                    else
+                    {
+                        // TODO: re-authenticate
+                        var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
+                        tokenRequestHandler.TokenResponse = tokenResponse;
+
+                        string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+
+                        tokenResponse.AccessToken = access_token;
+                        tokenResponse.IdToken = id_token;
+                        tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                        tokenRequestHandler.TokenResponse = tokenResponse;
+
+                        responseBody = CreateTokenResponseBody(latestLoginSession.TokenResponse.AccessToken, id_token, 3600);
+                    }
+                }
+
+                tokenRequestHandler.TokenRequestSession.IsInLoginSession = false;
+
+                if (tokenRequestHandler.TokenResponse != null)
+                    _tokenResponseDbServices.Update(tokenRequestHandler.TokenResponse);
+                _tokenRequestSessionDbServices.Update(tokenRequestHandler.TokenRequestSession);
+                _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
+
+                return Ok(JsonConvert.SerializeObject(responseBody));
+            }
+            else if (tokenRequestHandler.TokenResponse == null)
+            {
+                bool isOfflineAccess = tokenRequestHandler.TokenRequestSession.IsOfflineAccess;
+
+                var tokenResponse = _tokenResponseDbServices.CreateTokenResponse();
+                tokenRequestHandler.TokenResponse = tokenResponse;
+
+                var id_token = GenerateIdToken(user, tokenRequestHandler.TokenRequestSession.Scope, tokenRequestHandler.TokenRequestSession.Nonce, client.ClientId);
+                string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                tokenResponse.AccessToken = access_token;
+                tokenResponse.IdToken = id_token;
+
+                if (isOfflineAccess)
+                {
+                    string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
+                    tokenResponse.RefreshToken = refresh_token;
+                    tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
+                    tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
+
+                    responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
+                }
+                else
+                {
+                    responseBody = CreateTokenResponseBody(access_token, id_token, 3600);
+                }
+
+                tokenRequestHandler.TokenResponse = tokenResponse;
+
+                tokenRequestHandler.TokenRequestSession.IsInLoginSession = false;
+
+                // TODO: will check later
+                if (tokenRequestHandler.TokenResponse != null)
+                    _tokenResponseDbServices.Update(tokenRequestHandler.TokenResponse);
+                _tokenRequestSessionDbServices.Update(tokenRequestHandler.TokenRequestSession);
+                _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
+
+                return Ok(JsonConvert.SerializeObject(responseBody));
+                // TODO: return access token and refresh token is empty if refresh token is still date
+                //     : create new access token, return along with refresh token has value if refresh token is expired
+            }
+
+            return StatusCode(200);
+        }
+
+        private void GrantAccessToken_VerifyRequestParameters(Dictionary<string, string> requestBody, TokenRequestHandler tokenRequestHandler, PrMClient client)
+        {
+            //var webServerConfiguration = _configuration.GetSection(IdentityServerConfiguration.WEB_SERVER);
+
+            GrantAccessToken_VerifyRedirectUris(requestBody, client);
+            GrantAccessToken_VerifyCodeChallenger(requestBody, tokenRequestHandler);
+        }
+
+        private void GrantAccessToken_VerifyRedirectUris(Dictionary<string, string> requestBody, PrMClient client)
+        {
+            //Ensure that the redirect_uri parameter value is identical to the redirect_uri parameter value that was included in the initial Authorization Request.
+            //If the redirect_uri parameter value is not present when there is only one registered redirect_uri value,
+            //the Authorization Server MAY return an error(since the Client should have included the parameter) or MAY proceed without an error(since OAuth 2.0 permits the parameter to be omitted in this case).
+            string[] redirectUris = client.RedirectUris.Split(",");
+            var redirectUri = requestBody[TokenRequest.RedirectUri];
+            if (!redirectUris.Contains(redirectUri))
+                throw new InvalidOperationException("redirect_uri is mismatch!");
+        }
+
+        private string GrantAccessToken_VerifyAndGetAuthCodeFromRequest(Dictionary<string, string> requestBody)
+        {
+            string authorizationCode = requestBody[TokenRequest.Code];
+
+            if (string.IsNullOrEmpty(authorizationCode))
+                throw new NullReferenceException("authorization code is missing!");
+
+            return authorizationCode;
+        }
+
+        private void GrantAccessToken_VerifyCodeChallenger(Dictionary<string, string> requestBody, TokenRequestHandler tokenRequestHandler)
+        {
+            // TODO: by default, those two go along together, it may wrong in future coding
+            if (tokenRequestHandler.TokenRequestSession.CodeChallenge != null
+                && tokenRequestHandler.TokenRequestSession.CodeChallengeMethod != null)
+            {
+                var codeVerifier = requestBody[TokenRequest.CodeVerifier];
+                if (string.IsNullOrEmpty(codeVerifier))
+                    throw new NullReferenceException("code challenge is included in authorization code request but does not have in access token request!");
+
+                var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.WithSHA265());
+                if (!code_challenge.Equals(tokenRequestHandler.TokenRequestSession.CodeChallenge))
+                    throw new InvalidOperationException("code verifier is wrong!");
             }
         }
 
-        // TODO: by oauth flow, need access token to be verified before using this function
-        //     : done using access token, verify with authorization: bearer
+        private PrMClient GrantAccessToken_VerifyAndGetClient(Dictionary<string, string> requestBody, TokenRequestHandler tokenRequestHandler)
+        {
+            string clientId = requestBody[TokenRequest.ClientId];
+            string clientSecret = requestBody[TokenRequest.ClientSecret];
+
+            var client = new PrMClient();
+            if (string.IsNullOrEmpty(clientId)
+                || string.IsNullOrEmpty(clientSecret))
+                throw new NullReferenceException("client credentials's info is missing!");
+
+            client = _clientDbServices.GetByIdAndSecret(clientId, clientSecret);
+            if (tokenRequestHandler.TokenRequestSession != null 
+                && !tokenRequestHandler.TokenRequestSession.Client.Id.Equals(client.Id))
+                // TODO: status code may wrong
+                throw new InvalidOperationException("something wrong with client which Authorization Code was issued to!");
+
+            return client;
+        }
+
+        private object CreateTokenResponseBody(string access_token, string id_token, double expired_in, string refresh_token = "")
+        {
+            object responseBody;
+            if (string.IsNullOrEmpty(refresh_token))
+            {
+                responseBody = new
+                {
+                    access_token = access_token,
+                    id_token = id_token,
+                    token_type = "Bearer",
+                    // TODO: set by seconds
+                    expires_in = expired_in
+                };
+            }
+            else
+                responseBody = new
+                {
+                    access_token = access_token,
+                    id_token = id_token,
+                    refresh_token = refresh_token,
+                    token_type = "Bearer",
+                    // TODO: set by seconds
+                    expires_in = expired_in
+                };
+
+            return responseBody;
+        }
+
         [HttpGet("userinfo")]
         [Authorize]
         public async Task<ActionResult> GetUserInfoAsync()
@@ -898,7 +1073,6 @@ namespace IssuerOfClaims.Controllers
         }
 
         [HttpGet("userinfo.email")]
-        // TODO: by oauth flow, need access token to be verified before using this function
         [Authorize]
         public async Task<ActionResult> GetUserInfoAndEmailAsync()
         {
@@ -929,6 +1103,7 @@ namespace IssuerOfClaims.Controllers
 
             return responseMode;
         }
+        #endregion
 
         /// <summary>
         /// authorization_endpoint
@@ -1231,19 +1406,19 @@ namespace IssuerOfClaims.Controllers
             if (string.IsNullOrEmpty(clientId))
                 return StatusCode(400, "client id is missing!");
 
-            var confirmEmail = _emailDbServices.GetByCode(code);
-            if (!confirmEmail.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
+            var emailForChangingPassword = _emailDbServices.GetByCode(code);
+            if (!emailForChangingPassword.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
                 return StatusCode(500, "something inside this process is wrong!");
-            if (!confirmEmail.ExpiryTime.HasValue || confirmEmail.ExpiryTime < DateTime.Now)
+            if (!emailForChangingPassword.ExpiryTime.HasValue || emailForChangingPassword.ExpiryTime < DateTime.Now)
                 return StatusCode(500, "error with email's expired time!");
 
-            var user = confirmEmail.User;
+            var user = emailForChangingPassword.User;
             try
             {
                 _userManager.RemovePasswordAsync(user);
                 _userManager.AddPasswordAsync(user, password);
-                confirmEmail.IsConfirmed = true;
-                _emailDbServices.Update(confirmEmail);
+                emailForChangingPassword.IsConfirmed = true;
+                _emailDbServices.Update(emailForChangingPassword);
             }
             catch (Exception ex)
             {

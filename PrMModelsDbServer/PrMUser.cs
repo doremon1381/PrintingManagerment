@@ -45,7 +45,7 @@ namespace PrMDbModels
         //public bool IsOfflineAccess { get; set; } = true;
         public List<ConfirmEmail>? ConfirmEmails { get; set; } = new List<ConfirmEmail>();
         public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
-        public List<TokenRequestHandler> LoginSessionsWithResponse { get; set; } = new List<TokenRequestHandler>();
+        public List<TokenRequestHandler> TokenRequestHandlers { get; set; } = new List<TokenRequestHandler>();
 
         public PrMUser()
         {

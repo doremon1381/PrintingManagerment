@@ -2,6 +2,7 @@ using IssuerOfClaims.Controllers.Ultility;
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services;
+using IssuerOfClaims.Services.Database;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -14,36 +15,34 @@ namespace IssuerOfClaims
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            // Add services to the container.
 
             builder.Services.AddControllers();
-            builder.Services.AddDbContext<IPrMAuthenticationContext, PrMAuthenticationContext>(optionsAction =>
+            builder.Services.AddDbContext<IDbContextManager, DbContextManager>(optionsAction =>
             {
                 optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUltilities.DatabaseName));
-            });
-            builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
-            // TODO: will change later
-            builder.Services.AddScoped<IPrMClientDbServices, PrMClientDbServices>();
-            builder.Services.AddScoped<IPrMRoleDbServices, PrMRoleDbServices>();
-            //builder.Services.AddScoped<IPrMIdentityUserRoleDbServices, PrMIdentityUserRoleDbServices>();
-            builder.Services.AddScoped<IConfirmEmailDbServices, ConfirmEmailDbServices>();
-            builder.Services.AddScoped<ITokenResponseDbServices, TokenResponseDbServices>();
-            builder.Services.AddScoped<ITokenRequestSessionDbServices, TokenRequestSessionDbServices>();
-            //builder.Services.AddScoped<IPrMUserDbServices, PrMUserDbServices>();
-            builder.Services.AddScoped<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
-            builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
-            builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
-            // TODO: will add later
-            builder.Services.AddIdentityCore<PrMUser>()
-                .AddEntityFrameworkStores<PrMAuthenticationContext>()
-                .AddDefaultTokenProviders();
-
-            builder.Services.AddScoped<IPrMLoginSessionManager, PrMLoginSessionManager>();
+            }, ServiceLifetime.Scoped);
 
             builder.Services.AddLogging(options =>
             {
                 //options.AddFilter("Duende", LogLevel.Debug);
             });
+
+            builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
+            // TODO: will change later
+            builder.Services.AddScoped<IClientDbServices, ClientDbServices>();
+            builder.Services.AddScoped<IPrMRoleDbServices, RoleDbServices>();
+            builder.Services.AddScoped<IConfirmEmailDbServices, ConfirmEmailDbServices>();
+            builder.Services.AddTransient<ITokenResponseDbServices, TokenResponseDbServices>();
+            builder.Services.AddTransient<ITokenRequestSessionDbServices, TokenRequestSessionDbServices>();
+            builder.Services.AddScoped<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
+            builder.Services.AddScoped<ITokenRequestServices, TokenRequestServices>();
+
+            builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
+            builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
+            // TODO: will add later
+            builder.Services.AddIdentityCore<PrMUser>()
+                .AddEntityFrameworkStores<DbContextManager>()
+                .AddDefaultTokenProviders();
             // TODO: comment for now
             //builder.Services.AddApiVersioning(apiVersionOptions =>
             //{
@@ -59,7 +58,7 @@ namespace IssuerOfClaims
                 //options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
             })
             //.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,
-            .AddScheme<JwtBearerOptions, PrMAuthenticationHandler>(JwtBearerDefaults.AuthenticationScheme,
+            .AddScheme<JwtBearerOptions, AuthenticationServices>(JwtBearerDefaults.AuthenticationScheme,
                 options =>
                 {
                     // TODO: will check later

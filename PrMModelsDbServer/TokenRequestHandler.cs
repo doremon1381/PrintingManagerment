@@ -13,17 +13,13 @@ namespace PrMDbModels
     [PrimaryKey(nameof(Id))]
     public class TokenRequestHandler : ModelBase
     {
-        //public int? LoginSessionId { get; set; }
         public TokenRequestSession? TokenRequestSession { get; set; }
 
         public int? UserId { get; set; }
         public PrMUser User { get; set; }
 
-        //public int? TokenResponseId { get; set; }
         public TokenResponse? TokenResponse { get; set; }
 
-        public TokenExternal? TokenExternal { get; set; }
-
-        //public 
+        public TokenExternal? TokenExternal { get; set; } = null;
     }
 }

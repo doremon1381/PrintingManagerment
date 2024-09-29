@@ -55,7 +55,7 @@ namespace PrMDbModels
         /// <summary>
         /// TODO: intend to use this login session with client, cause 
         /// </summary>
-        [ForeignKey("ClientId")]
+        //[ForeignKey("ClientId")]
         public int? ClientId { get; set; }
         public PrMClient? Client { get; set; }
 #endif

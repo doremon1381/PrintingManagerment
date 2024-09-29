@@ -1,15 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using IssuerOfClaims.Database;
+using Microsoft.EntityFrameworkCore;
 using PrMDbModels;
 
-namespace IssuerOfClaims.Database
+namespace IssuerOfClaims.Services.Database
 {
     public class ConfirmEmailDbServices : DbTableBase<ConfirmEmail>, IConfirmEmailDbServices
     {
         private DbSet<ConfirmEmail> _ConfirmEmails { get; set; }
 
-        public ConfirmEmailDbServices(IPrMAuthenticationContext dbContext) : base(dbContext)
+        public ConfirmEmailDbServices(IDbContextManager dbContext) : base(dbContext)
         {
-            _ConfirmEmails = this._DbModels;
+            _ConfirmEmails = _DbModels;
         }
 
         public ConfirmEmail CreateWithoutSaveChanges()
@@ -27,7 +28,7 @@ namespace IssuerOfClaims.Database
         }
     }
 
-    public interface IConfirmEmailDbServices: IDbContextBase<ConfirmEmail>
+    public interface IConfirmEmailDbServices : IDbContextBase<ConfirmEmail>
     {
         //ConfirmEmail Get(int id);
         ConfirmEmail CreateWithoutSaveChanges();

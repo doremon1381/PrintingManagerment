@@ -1,4 +1,4 @@
-﻿using IssuerOfClaims.Database;
+﻿using IssuerOfClaims.Services.Database;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -14,25 +14,35 @@ using static PrMServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Services
 {
-    public class PrMAuthenticationHandler : AuthenticationHandler<JwtBearerOptions>
+    /// <summary>
+    /// TODO: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/write?view=aspnetcore-8.0&viewFallbackFrom=aspnetcore-2.2#per-request-dependencies
+    /// </summary>
+    public class AuthenticationServices : AuthenticationHandler<JwtBearerOptions>
     {
-        //private IPrMUserManager _authenticateServices;
-        private IPrMLoginSessionManager _loginSessionManager;
-        //private IPrMUserDbServices _userDbServices;
-        private IPrMClientDbServices _clientDbServices;
+        private ITokenRequestServices _tokenRequestServices;
+        private IClientDbServices _clientDbServices;
         private UserManager<PrMUser> _userManager;
+        //private readonly RequestDelegate _next;
 
-        public PrMAuthenticationHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder
-            , IPrMLoginSessionManager loginSessionManager, IPrMClientDbServices clientDbServices, UserManager<PrMUser> userManager) 
+        public AuthenticationServices(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder,
+            ITokenRequestServices tokenRequestServices, IClientDbServices clientDbServices, UserManager<PrMUser> userManager)
             : base(options, logger, encoder)
-            //, IPrMUserManager authenticateServices
         {
-            //_authenticateServices = authenticateServices;
-            _loginSessionManager = loginSessionManager;
-            //_userDbServices = userDbServices;
+            _tokenRequestServices = tokenRequestServices;
             _clientDbServices = clientDbServices;
             _userManager = userManager;
         }
+
+        //// TODO: 
+        //public async Task InitializeAsync(AuthenticationScheme scheme, HttpContext context,
+        //    ITokenRequestServices tokenRequestServices, IClientDbServices clientDbServices, UserManager<PrMUser> userManager)
+        //{
+        //    _tokenRequestServices = tokenRequestServices;
+        //    _clientDbServices = clientDbServices;
+        //    _userManager = userManager;
+
+        //    //await _next(context);
+        //}
 
         protected async override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -46,42 +56,36 @@ namespace IssuerOfClaims.Services
             var headers = this.Request.Headers;
             if (!string.IsNullOrEmpty(this.Context.Request.QueryString.Value))
             {
-                var requestQuerry = this.Context.Request.QueryString.Value.Remove(0, 1).Split("&");
+                var requestQuery = this.Context.Request.QueryString.Value.Remove(0, 1).Split("&");
 
                 var registerHeader = headers["Register"].ToString();
                 if (!string.IsNullOrEmpty(registerHeader))
                 {
                     // TODO: check if it is register new user request first, because "authorize" enpoint is decorated with [Authorize] attribute.
                     //     : get prompt to use from https://openid.net/specs/openid-connect-prompt-create-1_0.html
-                    requestQuerry.GetFromQueryString(AuthorizeRequest.Prompt, out string prompt);
-                    if (!string.IsNullOrEmpty(prompt)
-                        && prompt.Equals("create"))
+                    string prompt = GetValidParameterFromQuery(requestQuery, AuthorizeRequest.Prompt);
+                    if (prompt.Equals("create"))
                     {
-                        var registerClaim = GetClaimPrincipalForRegisterUser();
-                        var ticket = new AuthenticationTicket(registerClaim, this.Scheme.Name);
+                        AuthenticationTicket ticket = IssuingTicketForParticularProcess(this.Scheme.Name, registeredProcess: true);
+
                         return AuthenticateResult.Success(ticket);
                     }
                 }
 
-                // TODO: 12.1.  Refresh Request https://openid.net/specs/openid-connect-core-1_0.html
-                requestQuerry.GetFromQueryString(TokenRequest.GrantType, out string grantType);
-                if (!string.IsNullOrEmpty(grantType)
-                    && grantType.Contains(TokenTypes.RefreshToken))
-                {
-                    var registerClaim = GetClaimPrincipalForOfflineAccessUser();
-                    var ticket = new AuthenticationTicket(registerClaim, this.Scheme.Name);
-                    return AuthenticateResult.Success(ticket);
-                }
+                // TODO: change in flow
+                //// TODO: 12.1.  Refresh Request https://openid.net/specs/openid-connect-core-1_0.html
+                //string grantType = GetValidParameterFromQuery(requestQuery, TokenRequest.GrantType);
+                //if (grantType.Contains(TokenTypes.RefreshToken))
+                //{
+                //    AuthenticationTicket ticket = IssuingTicketForParticularProcess(this.Scheme.Name, offlineAccessProcess: true);
 
-                //// TODO: because inside this step is login, so logicaly client is not need for this, only user-credentitals is need
-                //requestQuerry.GetFromQueryString(AuthorizeRequest.ClientId, out string clientId);
-                //var client = _clientDbServices.GetById(clientId);
-                //if (client == null)
-                //    return AuthenticateResult.Fail("No client for clientId 's in header!");
+                //    return AuthenticateResult.Success(ticket);
+                //}
             }
 
             if (string.IsNullOrEmpty(headers.Authorization.ToString()))
                 return AuthenticateResult.Fail("Authentication's identity inside request headers is missing!");
+
             // TODO: authentication allow "Basic" access - username + password
             if (headers.Authorization.ToString().StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
             {
@@ -145,7 +149,7 @@ namespace IssuerOfClaims.Services
 
                 var bearer = authenticateToken.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
 
-                var loginSession = _loginSessionManager.FindByAccessToken(bearer);
+                var loginSession = _tokenRequestServices.FindByAccessToken(bearer);
 
                 #region authenticate reason
                 var principal = GetClaimPrincipal(loginSession.User);
@@ -164,6 +168,36 @@ namespace IssuerOfClaims.Services
 
             // TODO: return none for now
             return AuthenticateResult.Fail("nonce");
+        }
+
+        private AuthenticationTicket IssuingTicketForParticularProcess(string schemaName, bool registeredProcess = false, bool offlineAccessProcess = false)
+        {
+            ClaimsPrincipal claims = new ClaimsPrincipal();
+
+            if (registeredProcess == true && offlineAccessProcess == true)
+                throw new InvalidOperationException("Wrong implement!");
+
+            if (registeredProcess)
+            {
+                claims = GetClaimPrincipalForRegisterUser();
+            }
+            else if (offlineAccessProcess)
+            {
+                claims = GetClaimPrincipalForOfflineAccessUser();
+            }
+
+            return new AuthenticationTicket(claims, schemaName);
+        }
+
+        private string GetValidParameterFromQuery(string[] requestQuery, string parameterType)
+        {
+            string parameterValue = "";
+            requestQuery.GetFromQueryString(parameterType, out parameterValue);
+
+            if (string.IsNullOrEmpty(parameterValue))
+                throw new InvalidDataException("Parameter from query string must have value!");
+
+            return parameterValue;
         }
 
         private ClaimsPrincipal GetClaimPrincipalForRegisterUser()

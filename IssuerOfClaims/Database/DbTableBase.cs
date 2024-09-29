@@ -6,14 +6,18 @@ namespace IssuerOfClaims.Database
     {
         protected DbSet<TEntity> _DbModels { get; set; }
 
-        protected DbTableBase(IPrMAuthenticationContext dbContext)
+        protected DbTableBase(IDbContextManager dbContext)
         {
             _dbSaveChanges = new DbSaveChanges(dbContext.DbSaveChanges);
+            _isDisposed = new DbIsDisposed(dbContext.IsDisposed);
             _DbModels = dbContext.GetDbSet<TEntity>();
         }
 
         protected delegate void DbSaveChanges();
-        protected DbSaveChanges _dbSaveChanges { get; set; }
+        protected DbSaveChanges _dbSaveChanges { get; private set; }
+
+        protected delegate bool DbIsDisposed();
+        protected DbIsDisposed _isDisposed { get; private set; }
 
         public List<TEntity> GetAll()
         {
@@ -29,28 +33,28 @@ namespace IssuerOfClaims.Database
             }
             catch (Exception)
             {
-                return false;
-                //throw;
+                //return false;
+                throw;
             }
 
             return true;
         }
 
-        public bool Add(TEntity model)
-        {
-            try
-            {
-                this._DbModels.Add(model);
-                this.SaveChanges();
-            }
-            catch (Exception)
-            {
-                return false;
-                //throw;
-            }
+        //public bool Add(TEntity model)
+        //{
+        //    try
+        //    {
+        //        this._DbModels.Add(model);
+        //        this.SaveChanges();
+        //    }
+        //    catch (Exception)
+        //    {
+        //        //return false;
+        //        throw;
+        //    }
 
-            return true;
-        }
+        //    return true;
+        //}
 
         public bool Update(TEntity model)
         {
@@ -61,7 +65,8 @@ namespace IssuerOfClaims.Database
             }
             catch (Exception)
             {
-                return false;
+                //return false;
+                throw;
             }
 
             return true;
@@ -69,7 +74,18 @@ namespace IssuerOfClaims.Database
 
         public bool Delete(TEntity model)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                this._DbModels.Remove(model);
+                this.SaveChanges();
+            }
+            catch (Exception)
+            {
+                //return false;
+                throw;
+            }
+
+            return true;
         }
         public bool IsTableEmpty()
         {
@@ -86,7 +102,9 @@ namespace IssuerOfClaims.Database
             }
             catch (System.Exception ex)
             {
+                // TODO:
                 hasError = true;
+                throw;
             }
 
             return !hasError;
@@ -95,6 +113,11 @@ namespace IssuerOfClaims.Database
         public void SaveChanges()
         {
             this._dbSaveChanges.Invoke();
+        }
+
+        public bool IsDisposed()
+        {
+            return this._isDisposed.Invoke();
         }
     }
 
@@ -106,10 +129,11 @@ namespace IssuerOfClaims.Database
         bool IsTableEmpty();
         List<TDbModel> GetAll();
         bool Create(TDbModel model);
-        bool Add(TDbModel model);
+        //bool Add(TDbModel model);
         bool Update(TDbModel model);
         bool Delete(TDbModel model);
         bool AddMany(List<TDbModel> models);
+        bool IsDisposed();
         void SaveChanges();
     }
 }

@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PrMDbModels;
+using System.Reflection;
 
 namespace IssuerOfClaims.Database
 {
-    public class PrMAuthenticationContext : DbContext, IPrMAuthenticationContext
+    public class DbContextManager : DbContext, IDbContextManager
     {
 
-        private ILogger<PrMAuthenticationContext> _logger;
+        private ILogger<DbContextManager> _logger;
         private DbContextOptions _options;
         //private IConfiguration _configuration;
 
@@ -25,7 +26,7 @@ namespace IssuerOfClaims.Database
         public DbSet<TokenResponse> TokenResponses { get; set; }
         #endregion
 
-        public PrMAuthenticationContext(DbContextOptions<PrMAuthenticationContext> options, ILogger<PrMAuthenticationContext> logger)
+        public DbContextManager(DbContextOptions<DbContextManager> options, ILogger<DbContextManager> logger)
             : base(options)
         {
             _options = options;
@@ -51,6 +52,22 @@ namespace IssuerOfClaims.Database
             _logger.LogInformation($"GetDbSet is called!");
             // TODO: will change 
             return null;
+        }
+
+        // Using Type: 5.0.16.0  EntityFrameworkCore.DbContext (confirm if working with any core library upgrades)
+
+        public bool IsDisposed()
+        {
+            bool result = true;
+            var typeDbContext = typeof(DbContext);
+            var isDisposedTypeField = typeDbContext.GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (isDisposedTypeField != null)
+            {
+                result = (bool)isDisposedTypeField.GetValue(this);
+            }
+
+            return result;
         }
 
 #if (DEBUG || RELEASE)
@@ -143,22 +160,23 @@ namespace IssuerOfClaims.Database
 #endif
     }
 
-    public interface IPrMAuthenticationContext
+    public interface IDbContextManager
     {
         void DbSaveChanges();
+        bool IsDisposed();
         DbSet<TEntity> GetDbSet<TEntity>() where TEntity : class;
     }
 
     // TODO: for migration
-    public class YourDbContextFactory : IDesignTimeDbContextFactory<PrMAuthenticationContext>
+    public class YourDbContextFactory : IDesignTimeDbContextFactory<DbContextManager>
     {
-        public PrMAuthenticationContext CreateDbContext(string[] args)
+        public DbContextManager CreateDbContext(string[] args)
         {
-            var optionsBuilder = new DbContextOptionsBuilder<PrMAuthenticationContext>();
+            var optionsBuilder = new DbContextOptionsBuilder<DbContextManager>();
             optionsBuilder.UseSqlServer("Server=DESKTOP-2TRDKFE\\;Database=PrintingManagermentIdentity;trusted_connection=true;TrustServerCertificate=True");
 
             // TODO: logger as parameter is null for now
-            return new PrMAuthenticationContext(optionsBuilder.Options, null);
+            return new DbContextManager(optionsBuilder.Options, null);
         }
     }
 }

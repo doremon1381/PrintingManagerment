@@ -1,15 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using IssuerOfClaims.Database;
+using Microsoft.EntityFrameworkCore;
 using PrMDbModels;
 
-namespace IssuerOfClaims.Database
+namespace IssuerOfClaims.Services.Database
 {
-    public class PrMRoleDbServices : DbTableBase<PrMRole>, IPrMRoleDbServices
+    public class RoleDbServices : DbTableBase<PrMRole>, IPrMRoleDbServices
     {
         private DbSet<PrMRole> _PrMRoles;
 
-        public PrMRoleDbServices(IPrMAuthenticationContext dbContext) : base(dbContext)
+        public RoleDbServices(IDbContextManager dbContext) : base(dbContext)
         {
-            _PrMRoles = this._DbModels;
+            _PrMRoles = _DbModels;
         }
 
         public int Count()
@@ -25,7 +26,7 @@ namespace IssuerOfClaims.Database
         }
     }
 
-    public interface IPrMRoleDbServices: IDbContextBase<PrMRole>
+    public interface IPrMRoleDbServices : IDbContextBase<PrMRole>
     {
         int Count();
         PrMRole GetRoleByName(string roleName);
