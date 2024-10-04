@@ -4,13 +4,13 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
 #if IdentityServer
-    [Table("PrMClients")]
+    [Table("Clients")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class PrMClient : ModelBase
+    public class Client : DbModelBase
     {
 #if IdentityServer
         [Required]
@@ -28,15 +28,14 @@ namespace PrMDbModels
         [Required]
 #endif
         public string AllowedGrantTypes { get; set; }
-        public bool AllowOfflineAccess { get; set; } = false;
         public string RedirectUris { get; set; }
         public string PostLogoutRedirectUris { get; set; }
         public string FrontChannelLogoutUri { get; set; }
         public string AllowedScopes { get; set; }
         public string AuthProviderX509CertUrl { get; set; }
-        public List<TokenRequestSession> LoginSessions { get; set; } = new List<TokenRequestSession>();
+        public List<TokenRequestSession> TokenRequestSession { get; set; } = new List<TokenRequestSession>();
 
-        public PrMClient()
+        public Client()
         {
             ClientId = "";
             ClientSecrets = string.Empty;

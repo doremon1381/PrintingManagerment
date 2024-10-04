@@ -1,5 +1,5 @@
 ﻿
-using PrMServerUltilities.Identity;
+using ServerUltilities.Identity;
 
 namespace IssuerOfClaims.Models
 {

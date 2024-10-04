@@ -1,34 +1,49 @@
 ﻿using IssuerOfClaims.Database;
 using Microsoft.EntityFrameworkCore;
-using PrMDbModels;
+using ServerDbModels;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class RoleDbServices : DbTableBase<PrMRole>, IPrMRoleDbServices
+    public class RoleDbServices : DbTableBase<Role>, IRoleDbServices
     {
-        private DbSet<PrMRole> _PrMRoles;
+        private DbSet<Role> _Roles;
 
-        public RoleDbServices(IDbContextManager dbContext) : base(dbContext)
+        public RoleDbServices(IConfigurationManager configuration) : base(configuration)
         {
-            _PrMRoles = _DbModels;
+            //_PrMRoles = dbModels;
         }
 
         public int Count()
         {
-            return _PrMRoles.Count();
+            int count = 0;
+
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                _Roles = dbContext.GetDbSet<Role>();
+                count = _Roles.Count();
+            }
+
+            return count;
         }
 
-        public PrMRole GetRoleByName(string roleName)
+        public Role GetRoleByName(string roleName)
         {
-            var role = _PrMRoles.First(r => r.RoleName.Equals(roleName));
+            Role role;
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                _Roles = dbContext.GetDbSet<Role>();
+                role = _Roles.First(r => r.RoleName.Equals(roleName));
+            }
+
+            ValidateEntity(role);
 
             return role;
         }
     }
 
-    public interface IPrMRoleDbServices : IDbContextBase<PrMRole>
+    public interface IRoleDbServices : IDbContextBase<Role>
     {
         int Count();
-        PrMRole GetRoleByName(string roleName);
+        Role GetRoleByName(string roleName);
     }
 }

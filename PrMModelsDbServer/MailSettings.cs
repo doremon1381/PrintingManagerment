@@ -1,4 +1,4 @@
-﻿namespace PrMDbModels
+﻿namespace ServerDbModels
 {
     public class MailSettings
     {

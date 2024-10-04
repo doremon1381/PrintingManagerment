@@ -1,4 +1,4 @@
-﻿namespace PrMServerUltilities.Identity
+﻿namespace ServerUltilities.Identity
 {
     /// <summary>
     /// from https://github.com/IdentityServer/IdentityServer4/blob/main/src/IdentityServer4/src/Constants.cs

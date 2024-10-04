@@ -6,23 +6,20 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
 #if IdentityServer
-    [Table("PrMUsers")]
+    [Table("UserIdentities")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class PrMUser : IdentityUser<int>, IDbTable
+    public class UserIdentity : IdentityUser<int>, IDbTable
     {
 #if IdentityServer
         [Required]
 #endif
-        public string? PasswordHashSalt { get; set; } = null;
-#if IdentityServer
-        [Required]
-#endif
         public string? FullName { get; set; } = string.Empty;
-        public string? Name { get; set; } = string.Empty;
+        public string? FirstName { get; set; } = string.Empty;
+        public string? LastName { get; set; } = string.Empty;
         public string? Gender { get; set; } = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;
         public string? Avatar { get; set; } = string.Empty;
@@ -33,21 +30,24 @@ namespace PrMDbModels
         [NotMapped]
 #endif
         public override bool EmailConfirmed { get; set; }
+        /// <summary>
+        /// TODO: by logic of current process of creation, always need UserName, so it basically not null
+        ///     : but if allow identity from another source be used, so when user is created, UserName may not need
+        /// </summary>
         public override string? UserName { get; set; } = string.Empty;
         /// <summary>
         /// TODO: Will learn how to use it later
         /// </summary>
         public override string? SecurityStamp { get; set; } = null;
-        public bool IsActive { get; set; } = false;
-        ///// <summary>
-        ///// TODO: to allow user-agent can use refresh-token to get new access token using token enpoint
-        ///// </summary>
-        //public bool IsOfflineAccess { get; set; } = true;
+        /// <summary>
+        /// Created along with user, only change when update user's data
+        /// </summary>
+        public IdToken? IdToken { get; set; }
         public List<ConfirmEmail>? ConfirmEmails { get; set; } = new List<ConfirmEmail>();
-        public List<PrMIdentityUserRole> PrMIdentityUserRoles { get; set; } = new List<PrMIdentityUserRole>();
+        public List<IdentityUserRole> IdentityUserRoles { get; set; } = new List<IdentityUserRole>();
         public List<TokenRequestHandler> TokenRequestHandlers { get; set; } = new List<TokenRequestHandler>();
 
-        public PrMUser()
+        public UserIdentity()
         {
             this.AccessFailedCount = 0;
             this.PhoneNumber = string.Empty;

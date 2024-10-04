@@ -5,12 +5,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using PrMDbModels;
-using PrMServerUltilities.Extensions;
-using PrMServerUltilities.Identity;
+using ServerDbModels;
+using ServerUltilities.Extensions;
+using ServerUltilities.Identity;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using static PrMServerUltilities.Identity.OidcConstants;
+using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Services
 {
@@ -19,105 +19,48 @@ namespace IssuerOfClaims.Services
     /// </summary>
     public class AuthenticationServices : AuthenticationHandler<JwtBearerOptions>
     {
-        private ITokenRequestServices _tokenRequestServices;
-        private IClientDbServices _clientDbServices;
-        private UserManager<PrMUser> _userManager;
-        //private readonly RequestDelegate _next;
+        private ITokenResponsePerHandlerDbServices _tokenResponsePerHandlerDbServices;
+        private IApplicationUserManager _userManager;
 
         public AuthenticationServices(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder,
-            ITokenRequestServices tokenRequestServices, IClientDbServices clientDbServices, UserManager<PrMUser> userManager)
+            ITokenResponsePerHandlerDbServices tokenResponsePerHandlerDbServices, IApplicationUserManager userManager)
             : base(options, logger, encoder)
         {
-            _tokenRequestServices = tokenRequestServices;
-            _clientDbServices = clientDbServices;
+            _tokenResponsePerHandlerDbServices = tokenResponsePerHandlerDbServices;
             _userManager = userManager;
         }
 
-        //// TODO: 
-        //public async Task InitializeAsync(AuthenticationScheme scheme, HttpContext context,
-        //    ITokenRequestServices tokenRequestServices, IClientDbServices clientDbServices, UserManager<PrMUser> userManager)
-        //{
-        //    _tokenRequestServices = tokenRequestServices;
-        //    _clientDbServices = clientDbServices;
-        //    _userManager = userManager;
-
-        //    //await _next(context);
-        //}
-
         protected async override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            var endpoint = this.Context.GetEndpoint();
-            if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
+            try
             {
-                return AuthenticateResult.NoResult();
-            }
-
-            // TODO: user login
-            var headers = this.Request.Headers;
-            if (!string.IsNullOrEmpty(this.Context.Request.QueryString.Value))
-            {
-                var requestQuery = this.Context.Request.QueryString.Value.Remove(0, 1).Split("&");
-
-                var registerHeader = headers["Register"].ToString();
-                if (!string.IsNullOrEmpty(registerHeader))
+                var endpoint = this.Context.GetEndpoint();
+                if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
                 {
-                    // TODO: check if it is register new user request first, because "authorize" enpoint is decorated with [Authorize] attribute.
-                    //     : get prompt to use from https://openid.net/specs/openid-connect-prompt-create-1_0.html
-                    string prompt = GetValidParameterFromQuery(requestQuery, AuthorizeRequest.Prompt);
-                    if (prompt.Equals("create"))
-                    {
-                        AuthenticationTicket ticket = IssuingTicketForParticularProcess(this.Scheme.Name, registeredProcess: true);
-
-                        return AuthenticateResult.Success(ticket);
-                    }
+                    return AuthenticateResult.NoResult();
                 }
 
-                // TODO: change in flow
-                //// TODO: 12.1.  Refresh Request https://openid.net/specs/openid-connect-core-1_0.html
-                //string grantType = GetValidParameterFromQuery(requestQuery, TokenRequest.GrantType);
-                //if (grantType.Contains(TokenTypes.RefreshToken))
-                //{
-                //    AuthenticationTicket ticket = IssuingTicketForParticularProcess(this.Scheme.Name, offlineAccessProcess: true);
+                // TODO: user login
+                var headers = this.Request.Headers;
+                var authenticateInfor = headers.Authorization.ToString();
 
-                //    return AuthenticateResult.Success(ticket);
-                //}
-            }
+                if (string.IsNullOrEmpty(authenticateInfor))
+                    return AuthenticateResult.Fail("Authentication's identity inside request headers is missing!");
 
-            if (string.IsNullOrEmpty(headers.Authorization.ToString()))
-                return AuthenticateResult.Fail("Authentication's identity inside request headers is missing!");
-
-            // TODO: authentication allow "Basic" access - username + password
-            if (headers.Authorization.ToString().StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
-            {
-                var authenticateToken = this.Context.Request.Headers.Authorization.ToString();
-
-                var userNamePassword = authenticateToken.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
-                if (string.IsNullOrEmpty(userNamePassword))
-                    return AuthenticateResult.Fail("username and password is empty!");
-
-                string userName = userNamePassword.Split(":")[0];
-                string password = userNamePassword.Split(":")[1];
-
-                // TODO: Do authentication of userId and password against your credentials store here
-                var user = _userManager.Users
-                    .Include(user => user.PrMIdentityUserRoles).ThenInclude(p => p.Role)
-                    //.Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenResponse)
-                    //.Include(u => u.LoginSessionsWithResponse).ThenInclude(l => l.TokenRequestSession)
-                    //.Include(u => u.ConfirmEmails)
-                    .FirstOrDefault(u => u.UserName == userName);
-
-                if (user == null)
-                    return AuthenticateResult.Fail("User is not found!");
-
-                try
+                // TODO: authentication allow "Basic" access - username + password
+                if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
                 {
+                    var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
+                    if (string.IsNullOrEmpty(userNamePassword))
+                        return AuthenticateResult.Fail("username and password is empty!");
+
+                    string password = userNamePassword.Split(":")[1];
+
+                    UserIdentity user = GetUser(userNamePassword);
                     if (string.IsNullOrEmpty(user.PasswordHash))
                         return AuthenticateResult.Fail("try another login method, because this user's password is not set!");
 
-                    // TODO: with implicit grant, passwordHash must have when create new user, so let it be
-                    //var isPasswordMatched = PasswordUltilities.VerifyHashedPassword(user.PasswordHash, password);
-
-                    var valid = _userManager.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+                    var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
                     if (valid == PasswordVerificationResult.Failed)
                         return AuthenticateResult.Fail("wrong password!");
@@ -135,39 +78,52 @@ namespace IssuerOfClaims.Services
                     var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
 
                     return AuthenticateResult.Success(ticket);
+
                 }
-                catch (Exception ex)
+                // TODO: and "Bearer" token - access token or id token, for now, I'm trying to implement
+                //     : https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
+                else if (headers.Authorization.ToString().StartsWith(AuthenticationSchemes.AuthorizationHeaderBearer))
                 {
-                    return AuthenticateResult.Fail(ex.Message);
+                    var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
+
+                    var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
+
+                    #region authenticate reason
+                    var principal = GetClaimPrincipal(tokenResponse.TokenRequestHandler.User);
+
+                    Thread.CurrentPrincipal = principal;
+                    if (this.Context != null)
+                    {
+                        Context.User = principal;
+                    }
+                    #endregion
+
+                    var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
+
+                    return AuthenticateResult.Success(ticket);
                 }
+
+                // TODO: return none for now
+                return AuthenticateResult.Fail("nonce");
             }
-            // TODO: and "Bearer" token - access token or id token, for now, I'm trying to implement
-            //     : https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-            else if (headers.Authorization.ToString().StartsWith(AuthenticationSchemes.AuthorizationHeaderBearer))
+            catch (Exception ex)
             {
-                var authenticateToken = this.Context.Request.Headers.Authorization.ToString();
-
-                var bearer = authenticateToken.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
-
-                var loginSession = _tokenRequestServices.FindByAccessToken(bearer);
-
-                #region authenticate reason
-                var principal = GetClaimPrincipal(loginSession.User);
-
-                Thread.CurrentPrincipal = principal;
-                if (this.Context != null)
-                {
-                    Context.User = principal;
-                }
-                #endregion
-
-                var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-
-                return AuthenticateResult.Success(ticket);
+                return AuthenticateResult.Fail(ex.Message);
             }
+        }
 
-            // TODO: return none for now
-            return AuthenticateResult.Fail("nonce");
+        private UserIdentity GetUser(string userNamePassword)
+        {
+            string userName = userNamePassword.Split(":")[0];
+
+            // TODO: Do authentication of userId and password against your credentials store here
+            var user = _userManager.Current.Users
+                .Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
+                .FirstOrDefault(u => u.UserName == userName);
+            if (user == null)
+                throw new InvalidOperationException();
+
+            return user;
         }
 
         private AuthenticationTicket IssuingTicketForParticularProcess(string schemaName, bool registeredProcess = false, bool offlineAccessProcess = false)
@@ -191,8 +147,7 @@ namespace IssuerOfClaims.Services
 
         private string GetValidParameterFromQuery(string[] requestQuery, string parameterType)
         {
-            string parameterValue = "";
-            requestQuery.GetFromQueryString(parameterType, out parameterValue);
+            string parameterValue = requestQuery.GetFromQueryString(parameterType);
 
             if (string.IsNullOrEmpty(parameterValue))
                 throw new InvalidDataException("Parameter from query string must have value!");
@@ -226,7 +181,7 @@ namespace IssuerOfClaims.Services
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        private ClaimsPrincipal GetClaimPrincipal(PrMUser user)
+        private ClaimsPrincipal GetClaimPrincipal(UserIdentity user)
         {
             var claims = new List<Claim>
             {
@@ -241,7 +196,7 @@ namespace IssuerOfClaims.Services
                 new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
             };
-            user.PrMIdentityUserRoles.ForEach(p =>
+            user.IdentityUserRoles.ForEach(p =>
             {
                 claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleCode));
             });

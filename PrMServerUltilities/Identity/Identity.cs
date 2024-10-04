@@ -1,4 +1,4 @@
-﻿namespace PrMServerUltilities.Identity
+﻿namespace ServerUltilities.Identity
 {
 
     public static class IdentityServerConfiguration

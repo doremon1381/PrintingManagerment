@@ -2,45 +2,59 @@
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Database.Model;
 using Microsoft.EntityFrameworkCore;
-using PrMDbModels;
+using ServerDbModels;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class ClientDbServices : DbTableBase<PrMClient>, IClientDbServices
+    public class ClientDbServices : DbTableBase<Client>, IClientDbServices
     {
-        private DbSet<PrMClient> _PrMClients { get; set; }
+        private DbSet<Client> _Clients { get; set; }
 
-        public ClientDbServices(IDbContextManager dbContext) : base(dbContext)
+        public ClientDbServices(IConfigurationManager configuration) : base(configuration)
         {
-            _PrMClients = _DbModels;
+            //_Clients = dbModels;
         }
 
         // TODO: will remove
-        public List<PrMClient> GetAllClientWithRelation()
+        public List<Client> GetAllClientWithRelation()
         {
-            //var clients = _PrMClients.Include(c => c.AllowedGrantTypes)
-            return null;
+            throw new NotImplementedException();
         }
 
-        public PrMClient GetByIdAndSecret(string id, string clientSecret)
+        public Client GetByIdAndSecret(string id, string clientSecret)
         {
-            var client = _PrMClients.FirstOrDefault(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
+            Client client;
+
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                _Clients = dbContext.GetDbSet<Client>();
+                client = _Clients.First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
+            }
+
+            ValidateEntity(client, $"{this.GetType().Name}: client is null!");
 
             return client;
         }
 
-        public PrMClient GetById(string id)
+        public Client GetByClientId(string id)
         {
-            var client = _PrMClients.FirstOrDefault(c => c.ClientId.Equals(id));
+            Client client;
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                _Clients = dbContext.GetDbSet<Client>();
+                client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(id));
+            }
+
+            ValidateEntity(client, $"{this.GetType().Name}: client is null!");
 
             return client;
         }
     }
 
-    public interface IClientDbServices : IDbContextBase<PrMClient>
+    public interface IClientDbServices : IDbContextBase<Client>
     {
         //List<PrMClient> GetAllClientWithRelation();
-        PrMClient GetByIdAndSecret(string id, string secret);
-        PrMClient GetById(string id);
+        Client GetByIdAndSecret(string id, string secret);
+        Client GetByClientId(string id);
     }
 }

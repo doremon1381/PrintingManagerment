@@ -3,10 +3,11 @@ using IssuerOfClaims.Database;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services;
 using IssuerOfClaims.Services.Database;
+using IssuerOfClaims.Services.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using PrMDbModels;
+using ServerDbModels;
 
 namespace IssuerOfClaims
 {
@@ -20,7 +21,7 @@ namespace IssuerOfClaims
             builder.Services.AddDbContext<IDbContextManager, DbContextManager>(optionsAction =>
             {
                 optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUltilities.DatabaseName));
-            }, ServiceLifetime.Scoped);
+            }, ServiceLifetime.Transient);
 
             builder.Services.AddLogging(options =>
             {
@@ -29,20 +30,23 @@ namespace IssuerOfClaims
 
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
             // TODO: will change later
-            builder.Services.AddScoped<IClientDbServices, ClientDbServices>();
-            builder.Services.AddScoped<IPrMRoleDbServices, RoleDbServices>();
-            builder.Services.AddScoped<IConfirmEmailDbServices, ConfirmEmailDbServices>();
+            builder.Services.AddTransient<IClientDbServices, ClientDbServices>();
+            builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
+            builder.Services.AddTransient<IConfirmEmailDbServices, ConfirmEmailDbServices>();
             builder.Services.AddTransient<ITokenResponseDbServices, TokenResponseDbServices>();
             builder.Services.AddTransient<ITokenRequestSessionDbServices, TokenRequestSessionDbServices>();
-            builder.Services.AddScoped<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
-            builder.Services.AddScoped<ITokenRequestServices, TokenRequestServices>();
+            builder.Services.AddTransient<ITokenResponsePerHandlerDbServices, TokenResponsePerHandlerDbServices>();
+            builder.Services.AddTransient<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
+            builder.Services.AddTransient<IIdTokenDbServices, IdTokenDbServices>();
+            builder.Services.AddTransient<ITokenManager, TokenManager>();
 
             builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
             builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
             // TODO: will add later
-            builder.Services.AddIdentityCore<PrMUser>()
+            builder.Services.AddIdentityCore<UserIdentity>()
                 .AddEntityFrameworkStores<DbContextManager>()
                 .AddDefaultTokenProviders();
+            builder.Services.AddTransient<IApplicationUserManager, ApplicationUserManager>();
             // TODO: comment for now
             //builder.Services.AddApiVersioning(apiVersionOptions =>
             //{
@@ -131,7 +135,7 @@ namespace IssuerOfClaims
                     return;// Short-circuit the pipeline, preventing further middleware execution
                 }
 
-                next(context);
+                await next(context);
             });
             app.UseAuthorization();
 

@@ -2,11 +2,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
     [Table("ConfirmEmails")]
     [PrimaryKey(nameof(Id))]
-    public class ConfirmEmail : ModelBase
+    public class ConfirmEmail : DbModelBase
     {
 #if IdentityServer
         [Required]
@@ -21,8 +21,8 @@ namespace PrMDbModels
         public int? UserId { get; set; } = null;
 #if IdentityServer
         public int? ClientId { get; set;} = null;
-        public PrMClient? Client { get; set; } = null;
-        public PrMUser? User { get; set; } = null;
+        public Client? Client { get; set; } = null;
+        public UserIdentity? User { get; set; } = null;
 #else
         public UserToken? User { get; set; }
 #endif

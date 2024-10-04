@@ -1,5 +1,5 @@
 ﻿using Microsoft.IdentityModel.Tokens;
-using PrMDbModels;
+using ServerDbModels;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -12,7 +12,7 @@ namespace IssuerOfClaims.Models
             JwtOptions jwtOptions,
             string username,
             TimeSpan expiration,
-            PrMIdentityUserRole[] permissions)
+            IdentityUserRole[] permissions)
         {
             var keyBytes = Encoding.UTF8.GetBytes(jwtOptions.Key);
             var symmetricKey = new SymmetricSecurityKey(keyBytes);

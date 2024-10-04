@@ -1,6 +1,6 @@
 ﻿using IssuerOfClaims.Database;
 using Microsoft.EntityFrameworkCore;
-using PrMDbModels;
+using ServerDbModels;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -8,21 +8,28 @@ namespace IssuerOfClaims.Services.Database
     {
         private DbSet<ConfirmEmail> _ConfirmEmails { get; set; }
 
-        public ConfirmEmailDbServices(IDbContextManager dbContext) : base(dbContext)
+        public ConfirmEmailDbServices(IConfigurationManager configuration) : base(configuration)
         {
-            _ConfirmEmails = _DbModels;
+            //_ConfirmEmails = dbModels;
         }
 
-        public ConfirmEmail CreateWithoutSaveChanges()
+        public ConfirmEmail GetDraft()
         {
             return new ConfirmEmail();
         }
 
         public ConfirmEmail GetByCode(string code)
         {
-            var obj = _ConfirmEmails
+            ConfirmEmail obj;
+
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                obj = _ConfirmEmails
                 .Include(c => c.User)
-                .FirstOrDefault(c => c.ConfirmCode == code);
+                .First(c => c.ConfirmCode == code);
+            }
+
+            ValidateEntity(obj, $"{this.GetType().Name}: ConfirmEmail is null!");
 
             return obj;
         }
@@ -31,7 +38,7 @@ namespace IssuerOfClaims.Services.Database
     public interface IConfirmEmailDbServices : IDbContextBase<ConfirmEmail>
     {
         //ConfirmEmail Get(int id);
-        ConfirmEmail CreateWithoutSaveChanges();
+        ConfirmEmail GetDraft();
         ConfirmEmail GetByCode(string code);
     }
 }

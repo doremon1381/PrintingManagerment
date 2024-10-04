@@ -1,17 +1,20 @@
-﻿using PrMDbModels;
+﻿using ServerDbModels;
 #if IdentityServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
+    /// <summary>
+    ///  Store requested parameter for issuing token
+    /// </summary>
 #if IdentityServer
     [Table("TokenRequestSessions")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class TokenRequestSession: ModelBase
+    public class TokenRequestSession: DbModelBase
     {
         /// <summary>
         /// One time use only, for "Authorization code flow" or "hybrid flow"
@@ -49,15 +52,12 @@ namespace PrMDbModels
         public TokenRequestHandler? TokenRequestHandler { get; set; }
 
 #if IdentityServer
-        //public int? UserId { get; set; }
-        //public PrMUser? User { get; set; }
-
         /// <summary>
         /// TODO: intend to use this login session with client, cause 
         /// </summary>
-        //[ForeignKey("ClientId")]
+        [ForeignKey("ClientId")]
         public int? ClientId { get; set; }
-        public PrMClient? Client { get; set; }
+        public Client? Client { get; set; }
 #endif
     }
 

@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using PrMDbModels;
+using ServerDbModels;
 using System.Reflection;
 
 namespace IssuerOfClaims.Database
@@ -11,25 +11,26 @@ namespace IssuerOfClaims.Database
     {
 
         private ILogger<DbContextManager> _logger;
-        private DbContextOptions _options;
+        //private DbContextOptions _options;
         //private IConfiguration _configuration;
 
         #region DbSet needs to be add in this DbContext to prevent an error of DbSet is not existed in this context (I think it means in this DbContext class) when using later
-        public DbSet<PrMUser> PrMUsers { get; set; }
-        public DbSet<PrMRole> PrMRoles { get; set; }
-        public DbSet<PrMIdentityUserRole> IdentityUserRoles { get; set; }
-        public DbSet<PrMClient> PrMClients { get; set; }
-        public DbSet<ConfirmEmail> ConfirmEmails { get; set; }
-        public DbSet<TokenExternal> TokenExternals { get; set; }
-        public DbSet<TokenRequestSession> PrMRequiredLoginSessions { get; set; }
-        public DbSet<TokenRequestHandler> LoginSessionWithResponses { get; set; }
-        public DbSet<TokenResponse> TokenResponses { get; set; }
+        //public DbSet<UserIdentity> Users { get; set; }
+        //public DbSet<Role> Roles { get; set; }
+        //public DbSet<IdentityUserRole> IdentityUserRoles { get; set; }
+        //public DbSet<Client> Clients { get; set; }
+        //public DbSet<ConfirmEmail> ConfirmEmails { get; set; }
+        //public DbSet<TokenResponsePerIdentityRequest> TokenResponsePerHandlers { get; set; }
+        //public DbSet<TokenRequestSession> TokenRequestSessions { get; set; }
+        //public DbSet<TokenRequestHandler> TokenRequestHandlers { get; set; }
+        //public DbSet<TokenResponse> TokenResponses { get; set; }
+        //public DbSet<IdToken> IdTokens { get; set; }
         #endregion
 
         public DbContextManager(DbContextOptions<DbContextManager> options, ILogger<DbContextManager> logger)
             : base(options)
         {
-            _options = options;
+            //_options = options;
             _logger = logger;
 
             //_configuration = configuration;
@@ -73,49 +74,8 @@ namespace IssuerOfClaims.Database
 #if (DEBUG || RELEASE)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            //modelBuilder.Entity<CustomClient>()
-            //    .Property(x => x.Properties)
-            //    .HasConversion(
-            //        x => JsonConvert.SerializeObject(x),
-            //        x => JsonConvert.DeserializeObject<IDictionary<string, string>>(x),
-            //        // TODO: need to learn about compare
-            //        new ValueComparer<IDictionary<string, string>>(
-            //            (c1, c2) => c1.SequenceEqual(c2),
-            //            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
-            //            c => c.ToDictionary<string,string>()));
-            //modelBuilder.Entity<PrMClient>()
-            //    .Property(e => e.ClientSecrets)
-            //    .HasConversion(
-            //        v => string.Join(',', v),
-            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            //modelBuilder.Entity<PrMClient>()
-            //    .Property(e => e.AllowedGrantTypes)
-            //    .HasConversion(
-            //        v => string.Join(',', v),
-            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            //modelBuilder.Entity<PrMClient>()
-            //    .Property(e => e.RedirectUris)
-            //    .HasConversion(
-            //        v => string.Join(',', v),
-            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            //modelBuilder.Entity<PrMClient>()
-            //    .Property(e => e.PostLogoutRedirectUris)
-            //    .HasConversion(
-            //        v => string.Join(',', v),
-            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-            //modelBuilder.Entity<PrMClient>()
-            //    .Property(e => e.AllowedScopes)
-            //    .HasConversion(
-            //        v => string.Join(',', v),
-            //        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList());
-
-            //modelBuilder.Entity<PrMRole>()
-            //    .HasMany(a => a.RoleClaims)
-            //    .WithOne(c => c.Role)
-            //    .HasForeignKey(c => c.RoleId);
-
-            modelBuilder.Entity<PrMClient>()
-                .HasMany(c => c.LoginSessions)
+            modelBuilder.Entity<Client>()
+                .HasMany(c => c.TokenRequestSession)
                 .WithOne(l => l.Client)
                 .HasForeignKey(c => c.ClientId);
 
@@ -125,14 +85,9 @@ namespace IssuerOfClaims.Database
                 .HasForeignKey<TokenRequestSession>(l => l.TokenRequestHandlerId);
 
             modelBuilder.Entity<TokenRequestHandler>()
-                .HasOne(c => c.TokenResponse)
+                .HasMany(c => c.TokenResponsePerHandlers)
                 .WithOne(t => t.TokenRequestHandler)
-                .HasForeignKey<TokenResponse>(t => t.TokenRequestHandlerId);
-
-            modelBuilder.Entity<TokenRequestHandler>()
-                .HasOne(c => c.TokenExternal)
-                .WithOne(t => t.TokenRequestHandler)
-                .HasForeignKey<TokenExternal>(t => t.TokenRequestHandlerId);
+                .HasForeignKey(c => c.TokenRequestHandlerId);
 
             base.OnModelCreating(modelBuilder);
         }

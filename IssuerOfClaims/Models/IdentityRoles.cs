@@ -1,6 +1,6 @@
 ﻿namespace IssuerOfClaims.Models
 {
-    public static class PrMIdentityRoles
+    public static class IdentityRoles
     {
         /// <summary>
         /// TODO: it means client role in oauth2 implementation

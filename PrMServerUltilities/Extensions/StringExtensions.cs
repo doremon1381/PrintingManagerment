@@ -2,7 +2,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace PrMServerUltilities.Extensions
+namespace ServerUltilities.Extensions
 {
     public static class StringExtensions
     {
@@ -87,15 +87,17 @@ namespace PrMServerUltilities.Extensions
             }
         }
 
-        public static void GetFromQueryString(this string[] queryString, string key, out string value)
+        public static string GetFromQueryString(this string[] queryString, string key)
         {
-            var val = queryString.FirstOrDefault(q => q.StartsWith(key));
-            if (val != null)
-                value = val.Replace(key + "=", "");
+            var str = queryString.FirstOrDefault(q => q.StartsWith(key));
+            if (str != null)
+                str = str.Replace(key + "=", "");
             else
             {
-                value = "";
+                str = "";
             }
+
+            return str;
         }
 
         public static string ToBase64Encode(this string plainText)

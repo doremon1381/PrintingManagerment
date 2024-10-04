@@ -1,6 +1,6 @@
 ﻿using Microsoft.IdentityModel.Tokens;
 
-namespace PrMServerUltilities.Identity
+namespace ServerUltilities.Identity
 {
     /// <summary>
     /// 

@@ -1,9 +1,9 @@
-﻿namespace PrMDbModels
+﻿namespace ServerDbModels
 {
     /// <summary>
     /// Models a client secret with identifier and expiration
     /// </summary>    
-    public class PrMSecret
+    public class Secret
     {
         /// <summary>
         /// Gets or sets the description.
@@ -33,7 +33,7 @@
         /// <summary>
         /// Initializes a new instance of the <see cref="Secret"/> class.
         /// </summary>
-        public PrMSecret()
+        public Secret()
         {
         }
 
@@ -42,7 +42,7 @@
         /// </summary>
         /// <param name="value">The value.</param>
         /// <param name="expiration">The expiration.</param>
-        public PrMSecret(string value, DateTime? expiration = null)
+        public Secret(string value, DateTime? expiration = null)
             : this()
         {
             Value = value;
@@ -55,7 +55,7 @@
         /// <param name="value">The value.</param>
         /// <param name="description">The description.</param>
         /// <param name="expiration">The expiration.</param>
-        public PrMSecret(string value, string description, DateTime? expiration = null)
+        public Secret(string value, string description, DateTime? expiration = null)
             : this()
         {
             Description = description;

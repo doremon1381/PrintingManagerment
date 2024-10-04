@@ -1,4 +1,4 @@
-﻿using PrMServerUltilities.Identity;
+﻿using ServerUltilities.Identity;
 
 namespace IssuerOfClaims.Database.Model
 {

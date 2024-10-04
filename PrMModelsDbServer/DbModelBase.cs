@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
-    public class ModelBase: IDbTable
+    public class DbModelBase: IDbTable
     {
 #if IdentityServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

@@ -18,6 +18,7 @@
     <Compile Remove="Services\PrMIdentityServerServicesCollectionExtensions.cs" />
     <Compile Remove="Services\PrMUserManager.cs" />
     <Compile Remove="Services\PrMUserStore.cs" />
+    <Compile Remove="Services\TokenRequestServices.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,12 +45,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PrMModelsDbServer\PrMModelsDbServer.csproj" />
-    <ProjectReference Include="..\PrMServerUltilities\PrMServerUltilities.csproj" />
+    <ProjectReference Include="..\PrMModelsDbServer\ModelsDbServer.csproj" />
+    <ProjectReference Include="..\PrMServerUltilities\ServerUltilities.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\Ultility\" />
     <Folder Include="Migrations\" />
   </ItemGroup>
 

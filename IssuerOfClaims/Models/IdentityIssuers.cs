@@ -1,6 +1,6 @@
 ﻿namespace IssuerOfClaims.Models
 {
-    public static class PrMIssuers
+    public static class IdentityIssuers
     {
         public const string LOCAL_AUTHORITY = "local authority";
         public const string GOOGLE = "google";

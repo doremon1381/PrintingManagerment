@@ -1,35 +1,52 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using ServerDbModels;
 
 namespace IssuerOfClaims.Database
 {
-    public abstract class DbTableBase<TEntity> : IDbContextBase<TEntity> where TEntity : class
+    public abstract class DbTableBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
     {
-        protected DbSet<TEntity> _DbModels { get; set; }
+        protected IConfigurationManager configuration { get; set; }
 
-        protected DbTableBase(IDbContextManager dbContext)
+        protected DbTableBase(IConfigurationManager configuration)
         {
-            _dbSaveChanges = new DbSaveChanges(dbContext.DbSaveChanges);
-            _isDisposed = new DbIsDisposed(dbContext.IsDisposed);
-            _DbModels = dbContext.GetDbSet<TEntity>();
+            this.configuration = configuration;
         }
 
-        protected delegate void DbSaveChanges();
-        protected DbSaveChanges _dbSaveChanges { get; private set; }
+        public DbContextManager CreateDbContext(IConfigurationManager configuration)
+        {
+            var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
+                 .UseSqlServer(configuration.GetConnectionString(DbUltilities.DatabaseName))
+                 .Options;
 
-        protected delegate bool DbIsDisposed();
-        protected DbIsDisposed _isDisposed { get; private set; }
+            var dbContext = new DbContextManager(contextOptions, null);
+            return dbContext;
+        }
 
         public List<TEntity> GetAll()
         {
-            return this._DbModels.ToList();
+            List<TEntity> temp = new List<TEntity>();
+
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                var dbSet = dbContext.GetDbSet<TEntity>();
+                temp.AddRange(dbSet.ToList());
+            }
+
+            return temp;
         }
 
         public bool Create(TEntity model)
         {
             try
             {
-                this._DbModels.Add(model);
-                this.SaveChanges();
+                using (var dbContext = CreateDbContext(configuration))
+                {
+                    var dbSet = dbContext.GetDbSet<TEntity>();
+                    dbSet.Add(model);
+
+                    dbContext.SaveChanges();
+                }
             }
             catch (Exception)
             {
@@ -60,8 +77,14 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                this._DbModels.Update(model);
-                this.SaveChanges();
+                using (var dbContext = this.CreateDbContext(configuration))
+                {
+                    var dbModels = dbContext.GetDbSet<TEntity>();
+
+                    dbModels.Update(model);
+                    dbContext.SaveChanges();
+                }
+
             }
             catch (Exception)
             {
@@ -76,8 +99,13 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                this._DbModels.Remove(model);
-                this.SaveChanges();
+                using (var dbContext = CreateDbContext(configuration))
+                {
+                    var dbSet = dbContext.GetDbSet<TEntity>();
+                    dbSet.Remove(model);
+
+                    dbContext.SaveChanges();
+                }
             }
             catch (Exception)
             {
@@ -89,7 +117,15 @@ namespace IssuerOfClaims.Database
         }
         public bool IsTableEmpty()
         {
-            return this._DbModels.Count() > 0 ? false : true;
+            bool isEmpty = true;
+
+            using (var dbContext = CreateDbContext(configuration))
+            {
+                var dbSet = dbContext.GetDbSet<TEntity>();
+                isEmpty = !(dbSet.Count() > 0);
+            }
+
+            return isEmpty;
         }
 
         public virtual bool AddMany(List<TEntity> models)
@@ -97,8 +133,13 @@ namespace IssuerOfClaims.Database
             bool hasError = false;
             try
             {
-                this._DbModels.AddRange(models);
-                this.SaveChanges();
+                using (var dbContext = CreateDbContext(configuration))
+                {
+                    var dbSet = dbContext.GetDbSet<TEntity>();
+                    dbSet.AddRange(models);
+
+                    dbContext.SaveChanges();
+                }
             }
             catch (System.Exception ex)
             {
@@ -110,30 +151,25 @@ namespace IssuerOfClaims.Database
             return !hasError;
         }
 
-        public void SaveChanges()
+        public void ValidateEntity(TEntity obj, string message = "")
         {
-            this._dbSaveChanges.Invoke();
-        }
-
-        public bool IsDisposed()
-        {
-            return this._isDisposed.Invoke();
+            if (obj == null)
+                throw new InvalidOperationException(message);
         }
     }
 
     /// <summary>
     /// CRUD & something
     /// </summary>
-    public interface IDbContextBase<TDbModel> where TDbModel : class
+    public interface IDbContextBase<DbModel> where DbModel : class, IDbTable
     {
         bool IsTableEmpty();
-        List<TDbModel> GetAll();
-        bool Create(TDbModel model);
+        List<DbModel> GetAll();
+        bool Create(DbModel model);
         //bool Add(TDbModel model);
-        bool Update(TDbModel model);
-        bool Delete(TDbModel model);
-        bool AddMany(List<TDbModel> models);
-        bool IsDisposed();
-        void SaveChanges();
+        bool Update(DbModel model);
+        bool Delete(DbModel model);
+        bool AddMany(List<DbModel> models);
+        void ValidateEntity(DbModel obj, string message = "");
     }
 }

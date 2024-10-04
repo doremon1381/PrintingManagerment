@@ -6,20 +6,21 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
-
+    /// <summary>
+    /// Use TokenRequestHandler for receiving request data, storing requested parameter for issuing token and assembling response's value
+    /// </summary>
     [Table("TokenRequestHandlers")]
     [PrimaryKey(nameof(Id))]
-    public class TokenRequestHandler : ModelBase
+    public class TokenRequestHandler : DbModelBase
     {
-        public TokenRequestSession? TokenRequestSession { get; set; }
+        public TokenRequestSession TokenRequestSession { get; set; }
 
-        public int? UserId { get; set; }
-        public PrMUser User { get; set; }
+        [ForeignKey(nameof(UserId))]
+        public int UserId { get; set; }
+        public UserIdentity User { get; set; }
 
-        public TokenResponse? TokenResponse { get; set; }
-
-        public TokenExternal? TokenExternal { get; set; } = null;
+        public List<TokenResponsePerIdentityRequest> TokenResponsePerHandlers { get; set; } = new List<TokenResponsePerIdentityRequest>();
     }
 }

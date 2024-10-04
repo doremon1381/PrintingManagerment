@@ -1,28 +1,25 @@
 ﻿using Microsoft.AspNetCore.Identity;
-#if DbServer
+#if IdentityServer
 using Microsoft.EntityFrameworkCore;
-#endif
-
-#if DbServer
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
-#if DbServer
+#if IdentityServer
     [Table("IdentityUserRoles")]
     [PrimaryKey(nameof(Id))]
 #endif
     public class IdentityUserRole : IdentityUserRole<int>, IDbTable
     {
-#if DbServer
+#if IdentityServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
 #endif
         public int Id { get; set; }
         public override int RoleId { get; set; }
         public override int UserId { get; set; }
 
-        public PrMRole Role { get; set; } = null;
-        public PrMUser User { get; set; } = null;
+        public Role Role { get; set; } = null;
+        public UserIdentity User { get; set; } = null;
     }
 }

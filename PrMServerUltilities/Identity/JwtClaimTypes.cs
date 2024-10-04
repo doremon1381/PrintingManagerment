@@ -1,4 +1,4 @@
-﻿namespace PrMServerUltilities.Identity
+﻿namespace ServerUltilities.Identity
 {
     /// <summary>
     /// TODO: coppy from identity model, duende

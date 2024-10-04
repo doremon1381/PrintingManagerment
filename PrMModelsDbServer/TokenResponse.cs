@@ -1,36 +1,38 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PrMDbModels
+namespace ServerDbModels
 {
     [Table("TokenResponses")]
     [PrimaryKey(nameof(Id))]
-    public class TokenResponse : ModelBase
+    public class TokenResponse : DbModelBase
     {
-        public string? AccessToken { get; set; } = null;
-        public string? IdToken { get; set; } = null;
-        public string? RefreshToken { get; set; } = null;
+        public string Token { get; set; } = string.Empty;
 
-        ///// <summary>
-        ///// For initiation
-        ///// </summary>
-        //public bool IsAccessTokenExpired { get; set; } = false;
-        ///// <summary>
-        ///// For initiation
-        ///// </summary>
-        //public bool IsRefreshTokenExpired { get; set; } = false;
+        public string TokenType { get; set; } = string.Empty;
+
+        public string ExternalSource { get; set;} = string.Empty;
 
         /// <summary>
         /// TODO: set by seconds
         /// </summary>
-        public DateTime? AccessTokenExpiried { get; set; } = null;
-        /// <summary>
-        /// TODO: set by seconds
-        /// </summary>
-        public DateTime? RefreshTokenExpiried { get; set; } = null;
+        public DateTime? TokenExpiried { get; set; }
 
-        [ForeignKey("TokenRequestHandlerId")]
-        public int? TokenRequestHandlerId { get; set; }
-        public TokenRequestHandler? TokenRequestHandler { get; set; }
+        List<TokenResponsePerIdentityRequest> TokenResponsePerHandler { get; set; } = new List<TokenResponsePerIdentityRequest>();
+    }
+
+    public static class TokenType
+    {
+        public const string AccessToken = "access_token";
+        public const string IdToken = "id_token";
+        public const string RefreshToken = "refresh_token";
+    }
+
+    public enum ExternalSources
+    {
+        Google,
+        FaceBook,
+        Twitter
+        //...
     }
 }
